@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  TEACHER
+  STUDENT
+}
+
+enum TaskAnswerType {
+  TEXT
+  NUMBER
+  NUMBER_LIST
+  PAIR_LIST_ORDERED
+  PAIR_LIST_UNORDERED
+}
+
+enum HomeworkStatus {
+  DRAFT
+  ASSIGNED
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(STUDENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedHomeworks HomeworkAssignment[]
+  attempts          Attempt[]
+}
+
+model Task {
+  id              String         @id @default(cuid())
+  egeNumber       Int
+  title           String
+  statementHtml   String
+  answerType      TaskAnswerType
+  correctAnswer   Json
+  explanationHtml String?
+  videoUrl        String?
+  source          String?
+  difficulty      Int?
+  isArchived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  homeworkTasks  HomeworkTask[]
+  attemptAnswers AttemptAnswer[]
+
+  @@index([egeNumber])
+}
+
+model Homework {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  deadline    DateTime?
+  status      HomeworkStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks       HomeworkTask[]
+  assignments HomeworkAssignment[]
+  attempts    Attempt[]
+}
+
+model HomeworkTask {
+  id         String @id @default(cuid())
+  homeworkId String
+  taskId     String
+  order      Int
+
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, taskId])
+  @@index([homeworkId])
+  @@index([taskId])
+}
+
+model HomeworkAssignment {
+  id         String @id @default(cuid())
+  homeworkId String
+  studentId  String
+
+  assignedAt DateTime @default(now())
+
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+  @@index([homeworkId])
+  @@index([studentId])
+}
+
+model Attempt {
+  id         String        @id @default(cuid())
+  homeworkId String
+  studentId  String
+  status     AttemptStatus @default(IN_PROGRESS)
+
+  score    Int   @default(0)
+  maxScore Int   @default(0)
+  percent  Float @default(0)
+
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers  AttemptAnswer[]
+
+  @@index([homeworkId])
+  @@index([studentId])
+}
+
+model AttemptAnswer {
+  id        String @id @default(cuid())
+  attemptId String
+  taskId    String
+
+  rawAnswer        Json
+  normalizedAnswer Json?
+  isCorrect        Boolean @default(false)
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, taskId])
+  @@index([attemptId])
+  @@index([taskId])
+}

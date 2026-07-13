@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: exam_platform_postgres
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: exam_user
+      POSTGRES_PASSWORD: exam_password
+      POSTGRES_DB: exam_platform
+    volumes:
+      - exam_platform_pg_data:/var/lib/postgresql/data
+
+volumes:
+  exam_platform_pg_data:

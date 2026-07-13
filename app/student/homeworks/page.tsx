@@ -14,6 +14,11 @@ export default async function StudentHomeworksPage() {
   const assignments = await prisma.homeworkAssignment.findMany({
     where: {
       studentId: user.id,
+      homework: {
+        status: {
+          not: "ARCHIVED",
+        },
+      },
     },
     include: {
       homework: {

@@ -16,19 +16,42 @@ type StudentItem = {
   email: string;
 };
 
-type HomeworkFormProps = {
-  tasks: TaskItem[];
-  students: StudentItem[];
+type HomeworkFormInitialData = {
+  id: string;
+  title: string;
+  description: string;
+  deadline: string;
+  taskIds: string[];
+  studentIds: string[];
+  attemptsCount: number;
 };
 
-export function HomeworkForm({ tasks, students }: HomeworkFormProps) {
+type HomeworkFormProps = {
+  mode?: "create" | "edit";
+  tasks: TaskItem[];
+  students: StudentItem[];
+  initialData?: HomeworkFormInitialData;
+};
+
+export function HomeworkForm({
+  mode = "create",
+  tasks,
+  students,
+  initialData,
+}: HomeworkFormProps) {
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [description, setDescription] = useState(
+    initialData?.description ?? ""
+  );
+  const [deadline, setDeadline] = useState(initialData?.deadline ?? "");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(
+    initialData?.taskIds ?? []
+  );
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>(
+    initialData?.studentIds ?? []
+  );
 
   const [taskSearch, setTaskSearch] = useState("");
   const [egeNumberFilter, setEgeNumberFilter] = useState("");
@@ -150,8 +173,13 @@ export function HomeworkForm({ tasks, students }: HomeworkFormProps) {
     setIsSaving(true);
 
     try {
-      const response = await fetch("/api/homeworks", {
-        method: "POST",
+      const url =
+        mode === "create"
+          ? "/api/homeworks"
+          : `/api/homeworks/${initialData?.id}`;
+
+      const response = await fetch(url, {
+        method: mode === "create" ? "POST" : "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -167,7 +195,7 @@ export function HomeworkForm({ tasks, students }: HomeworkFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Не удалось создать домашнее задание");
+        setError(data.message || "Не удалось сохранить домашнее задание");
         return;
       }
 
@@ -185,6 +213,18 @@ export function HomeworkForm({ tasks, students }: HomeworkFormProps) {
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+
+      {mode === "edit" && initialData?.attemptsCount ? (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+          <div className="font-bold">В этом ДЗ уже есть отправленные решения</div>
+          <div className="mt-1">
+            Попыток: {initialData.attemptsCount}. Менять название, описание и
+            дедлайн безопасно. Состав задач тоже можно изменить, но история
+            старых попыток останется как была. Учеников, которые уже сдавали
+            это ДЗ, убрать нельзя.
+          </div>
         </div>
       ) : null}
 
@@ -499,7 +539,11 @@ export function HomeworkForm({ tasks, students }: HomeworkFormProps) {
           disabled={isSaving}
           className="w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Создаём..." : "Создать и выдать ДЗ"}
+          {isSaving
+            ? "Сохраняем..."
+            : mode === "create"
+              ? "Создать и выдать ДЗ"
+              : "Сохранить изменения"}
         </button>
       </div>
     </form>

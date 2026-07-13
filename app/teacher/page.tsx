@@ -25,7 +25,7 @@ export default async function TeacherPage() {
           <LogoutButton />
         </header>
 
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Link
             href="/teacher/students"
             className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
@@ -85,6 +85,35 @@ export default async function TeacherPage() {
               Просмотр попыток, ошибок и результатов учеников.
             </p>
           </Link>
+
+          <Link
+            href="/teacher/homeworks/review"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="text-sm font-medium text-slate-500">
+              Контроль ДЗ
+            </div>
+            <h2 className="mt-2 text-xl font-bold text-slate-950">
+              Кто сдал и кто нет
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Общий экран контроля выполнения, ошибок и учеников, которым нужно внимание.
+            </p>
+          </Link>
+
+          <Link
+            href="/teacher/webinars"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="text-sm font-medium text-slate-500">Вебинары</div>
+            <h2 className="mt-2 text-xl font-bold text-slate-950">
+              Видео и материалы
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Публикация записей вебинаров, конспектов, шпаргалок и ссылок для учеников.
+            </p>
+          </Link>
+
         </section>
       </div>
     </main>

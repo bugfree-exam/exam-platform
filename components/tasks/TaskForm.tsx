@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { RichTextEditor } from "@/components/editor/RichTextEditor";
 
 type AnswerType =
   | "TEXT"
@@ -182,16 +183,13 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
         <label className="mb-1 block text-sm font-medium text-slate-700">
           Условие задачи
         </label>
-        <textarea
+        <RichTextEditor
           value={statementHtml}
-          onChange={(event) => setStatementHtml(event.target.value)}
-          rows={8}
-          className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
-          placeholder="<p>Вставь условие задачи. Пока можно использовать простой HTML: <b>жирный</b>, <br>, списки и т.д.</p>"
+          onChange={setStatementHtml}
+          minHeight={320}
         />
         <p className="mt-2 text-xs text-slate-500">
-          Пока используем HTML-поле. Редактор с кнопками, картинками и таблицами
-          добавим отдельным шагом.
+          Можно добавлять форматирование, картинки, ссылки, списки и таблицы.
         </p>
       </div>
 
@@ -260,12 +258,10 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
         <label className="mb-1 block text-sm font-medium text-slate-700">
           Решение / пояснение
         </label>
-        <textarea
+        <RichTextEditor
           value={explanationHtml}
-          onChange={(event) => setExplanationHtml(event.target.value)}
-          rows={5}
-          className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
-          placeholder="<p>Пояснение к решению задачи.</p>"
+          onChange={setExplanationHtml}
+          minHeight={240}
         />
       </div>
 

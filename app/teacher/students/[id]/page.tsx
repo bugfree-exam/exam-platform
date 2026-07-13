@@ -105,18 +105,29 @@ export default async function TeacherStudentPage({
     <main className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <Link
-            href="/teacher/students"
-            className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
-          >
-            ← Ученики
-          </Link>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <Link
+                href="/teacher/students"
+                className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
+              >
+                ← Ученики
+              </Link>
 
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">
-            {student.name}
-          </h1>
+              <h1 className="mt-3 text-3xl font-bold text-slate-950">
+                {student.name}
+              </h1>
 
-          <p className="mt-2 text-slate-600">{student.email}</p>
+              <p className="mt-2 text-slate-600">{student.email}</p>
+            </div>
+
+            <Link
+              href={`/teacher/students/${student.id}/parent-report`}
+              className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Отчёт для родителей
+            </Link>
+          </div>
         </header>
 
         <section className="mb-6 grid gap-4 md:grid-cols-3">

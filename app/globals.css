@@ -24,3 +24,115 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+.ProseMirror {
+  min-height: 220px;
+}
+
+.ProseMirror p {
+  margin: 0.7rem 0;
+}
+
+.ProseMirror h2,
+.prose h2,
+.content-html h2 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.ProseMirror h3,
+.prose h3,
+.content-html h3 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.ProseMirror ul,
+.ProseMirror ol,
+.prose ul,
+.prose ol,
+.content-html ul,
+.content-html ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.ProseMirror ul,
+.prose ul,
+.content-html ul {
+  list-style: disc;
+}
+
+.ProseMirror ol,
+.prose ol,
+.content-html ol {
+  list-style: decimal;
+}
+
+.ProseMirror a,
+.prose a,
+.content-html a {
+  color: rgb(8 145 178);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.ProseMirror img,
+.prose img,
+.content-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  margin: 1rem 0;
+  border: 1px solid rgb(226 232 240);
+}
+
+.ProseMirror table,
+.prose table,
+.content-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.ProseMirror th,
+.ProseMirror td,
+.prose th,
+.prose td,
+.content-html th,
+.content-html td {
+  border: 1px solid rgb(203 213 225);
+  padding: 0.6rem 0.75rem;
+  vertical-align: top;
+}
+
+.ProseMirror th,
+.prose th,
+.content-html th {
+  background: rgb(241 245 249);
+  font-weight: 800;
+}
+
+.ProseMirror .selectedCell:after {
+  background: rgba(14, 165, 233, 0.16);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.ProseMirror td,
+.ProseMirror th {
+  position: relative;
+}

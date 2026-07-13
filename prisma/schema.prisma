@@ -31,6 +31,27 @@ enum AttemptStatus {
   SUBMITTED
 }
 
+enum WebinarVideoProvider {
+  RUTUBE
+  YANDEX_DISK
+  EXTERNAL
+}
+
+enum WebinarStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum WebinarMaterialType {
+  LINK
+  CHEATSHEET
+  PRESENTATION
+  DOCUMENT
+  CODE
+  OTHER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -147,4 +168,44 @@ model AttemptAnswer {
   @@unique([attemptId, taskId])
   @@index([attemptId])
   @@index([taskId])
+}
+
+model Webinar {
+  id            String               @id @default(cuid())
+  title         String
+  description   String?
+  contentHtml   String
+  videoUrl      String
+  videoEmbedUrl String?
+  videoProvider WebinarVideoProvider @default(RUTUBE)
+  status        WebinarStatus        @default(DRAFT)
+  topic     String?
+  egeNumber Int?
+
+  eventDate   DateTime?
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  materials WebinarMaterial[]
+
+  @@index([status])
+  @@index([eventDate])
+}
+
+model WebinarMaterial {
+  id        String              @id @default(cuid())
+  webinarId String
+  title     String
+  url       String
+  type      WebinarMaterialType @default(LINK)
+  order     Int                 @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  webinar Webinar @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+
+  @@index([webinarId])
 }

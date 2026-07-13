@@ -1,0 +1,183 @@
+import {
+  WebinarMaterialType,
+  WebinarStatus,
+  WebinarVideoProvider,
+} from "@prisma/client";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
+
+export const runtime = "nodejs";
+
+const materialSchema = z.object({
+  title: z.string().min(1, "Введите название материала").max(200),
+  url: z.string().min(1, "Введите ссылку на материал").max(1000),
+  type: z.nativeEnum(WebinarMaterialType),
+});
+
+const updateWebinarSchema = z.object({
+  title: z.string().min(1, "Введите название вебинара").max(200),
+  description: z.string().optional().nullable(),
+  contentHtml: z.string().min(1, "Добавьте текст/конспект вебинара"),
+  videoUrl: z.string().min(1, "Добавьте ссылку на видео").max(1000),
+  videoEmbedUrl: z.string().optional().nullable(),
+  videoProvider: z.nativeEnum(WebinarVideoProvider),
+  status: z.nativeEnum(WebinarStatus),
+  eventDate: z.string().optional().nullable(),
+  materials: z.array(materialSchema).default([]),
+  topic: z.string().optional().nullable(),
+  egeNumber: z.string().optional().nullable(),
+});
+
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+async function requireTeacher() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return {
+      user: null,
+      response: NextResponse.json(
+        { message: "Не авторизован" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  if (user.role !== "TEACHER") {
+    return {
+      user: null,
+      response: NextResponse.json(
+        { message: "Недостаточно прав" },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { user, response: null };
+}
+
+export async function PUT(request: Request, context: RouteContext) {
+  try {
+    const { response } = await requireTeacher();
+
+    if (response) {
+      return response;
+    }
+
+    const { id } = await context.params;
+
+    const body = await request.json();
+    const parsed = updateWebinarSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          message: "Некорректные данные вебинара",
+          errors: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const existingWebinar = await prisma.webinar.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!existingWebinar) {
+      return NextResponse.json(
+        { message: "Вебинар не найден" },
+        { status: 404 }
+      );
+    }
+
+    const eventDate = parsed.data.eventDate
+      ? new Date(parsed.data.eventDate)
+      : null;
+
+    if (parsed.data.eventDate && Number.isNaN(eventDate?.getTime())) {
+      return NextResponse.json(
+        { message: "Некорректная дата вебинара" },
+        { status: 400 }
+      );
+    }
+
+    const egeNumber = parsed.data.egeNumber
+      ? Number(parsed.data.egeNumber)
+      : null;
+
+    if (
+      egeNumber !== null &&
+      (!Number.isInteger(egeNumber) || egeNumber < 1 || egeNumber > 27)
+    ) {
+      return NextResponse.json(
+        { message: "Номер ЕГЭ должен быть от 1 до 27" },
+        { status: 400 }
+      );
+    }
+
+    const videoEmbedUrl = getWebinarEmbedUrl({
+      provider: parsed.data.videoProvider,
+      videoUrl: parsed.data.videoUrl,
+      videoEmbedUrl: parsed.data.videoEmbedUrl ?? null,
+    });
+
+    const webinar = await prisma.$transaction(async (tx) => {
+      await tx.webinarMaterial.deleteMany({
+        where: {
+          webinarId: id,
+        },
+      });
+
+      const updatedWebinar = await tx.webinar.update({
+        where: {
+          id,
+        },
+        data: {
+          title: parsed.data.title.trim(),
+          description: parsed.data.description?.trim() || null,
+          contentHtml: parsed.data.contentHtml,
+          videoUrl: parsed.data.videoUrl.trim(),
+          videoEmbedUrl,
+          videoProvider: parsed.data.videoProvider,
+          status: parsed.data.status,
+          topic: parsed.data.topic?.trim() || null,
+          egeNumber,
+          eventDate,
+          publishedAt:
+            parsed.data.status === WebinarStatus.PUBLISHED
+              ? existingWebinar.publishedAt ?? new Date()
+              : existingWebinar.publishedAt,
+          materials: {
+            create: parsed.data.materials.map((material, index) => ({
+              title: material.title.trim(),
+              url: material.url.trim(),
+              type: material.type,
+              order: index + 1,
+            })),
+          },
+        },
+      });
+
+      return updatedWebinar;
+    });
+
+    return NextResponse.json({ webinar });
+  } catch (error) {
+    console.error("[WEBINARS_ID_PUT]", error);
+
+    return NextResponse.json(
+      { message: "Ошибка сервера при обновлении вебинара" },
+      { status: 500 }
+    );
+  }
+}

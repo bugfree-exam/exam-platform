@@ -105,6 +105,12 @@ export default async function StudentHomeworkPage({
     <main className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-4xl">
         <header className="mb-8">
+          {homework.status === "ARCHIVED" ? (
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-100 p-4 text-sm leading-6 text-slate-700">
+            Это домашнее задание находится в архиве. История решений сохранена, но
+            преподаватель убрал его из активных заданий.
+          </div>
+        ) : null}
           <Link
             href="/student/homeworks"
             className="text-sm font-medium text-cyan-700 hover:text-cyan-900"

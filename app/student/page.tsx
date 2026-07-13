@@ -55,6 +55,21 @@ export default async function StudentPage() {
               История решений и статистика по заданиям ЕГЭ.
             </p>
           </Link>
+
+          <Link
+            href="/student/webinars"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="text-sm font-medium text-slate-500">Материалы курса</div>
+            <h2 className="mt-2 text-xl font-bold text-slate-950">
+              Вебинары и конспекты
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Записи прошедших вебинаров, шпаргалки, презентации и дополнительные
+              материалы.
+            </p>
+          </Link>
+          
         </section>
       </div>
     </main>

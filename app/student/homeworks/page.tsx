@@ -3,9 +3,12 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+
+import { requireStudentPage } from "@/lib/access";
 
 export default async function StudentHomeworksPage() {
-  const user = await getCurrentUser();
+  const user = await requireStudentPage();
 
   if (!user) {
     redirect("/login");

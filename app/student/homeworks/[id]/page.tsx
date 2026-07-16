@@ -5,6 +5,8 @@ import { HomeworkSolveForm } from "@/components/student/HomeworkSolveForm";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { requireStudentPage } from "@/lib/access";
+
 type StudentHomeworkPageProps = {
   params: Promise<{
     id: string;
@@ -14,13 +16,8 @@ type StudentHomeworkPageProps = {
 export default async function StudentHomeworkPage({
   params,
 }: StudentHomeworkPageProps) {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
   const { id } = await params;
+  const user = await requireStudentPage();
 
   const homework = await prisma.homework.findFirst({
     where: {

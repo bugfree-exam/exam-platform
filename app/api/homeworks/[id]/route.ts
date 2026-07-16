@@ -2,8 +2,11 @@ import { HomeworkStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+import { UserRole } from "@prisma/client";
+
+import { requireApiRole } from "@/lib/access";
 
 export const runtime = "nodejs";
 
@@ -25,37 +28,11 @@ type RouteContext = {
   }>;
 };
 
-async function requireTeacher() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (user.role !== "TEACHER") {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, response: null };
-}
-
 export async function GET(_request: Request, context: RouteContext) {
-  const { response } = await requireTeacher();
+  const auth = await requireApiRole(UserRole.TEACHER);
 
-  if (response) {
-    return response;
+  if (!auth.ok) {
+    return auth.response;
   }
 
   const { id } = await context.params;
@@ -116,10 +93,10 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PUT(request: Request, context: RouteContext) {
   try {
-    const { response } = await requireTeacher();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (response) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const { id } = await context.params;
@@ -298,10 +275,10 @@ export async function PUT(request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const { response } = await requireTeacher();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (response) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const { id } = await context.params;

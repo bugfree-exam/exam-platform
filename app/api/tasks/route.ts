@@ -1,11 +1,14 @@
+import { TaskAnswerType, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { TaskAnswerType } from "@prisma/client";
 import { z } from "zod";
-import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
+import { requireApiRole } from "@/lib/access";
 import { parseCorrectAnswer } from "@/lib/answer";
-import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  hasEditorContent,
+  sanitizeEditorHtml,
+} from "@/lib/sanitizeHtml";
 
 export const runtime = "nodejs";
 
@@ -21,81 +24,78 @@ const taskSchema = z.object({
   difficulty: z.number().int().min(1).max(5).optional().nullable(),
 });
 
-async function requireTeacher() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (user.role !== "TEACHER") {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, response: null };
-}
-
 export async function GET(request: Request) {
-  const { response } = await requireTeacher();
+  try {
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-  if (response) {
-    return response;
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { searchParams } = new URL(request.url);
+
+    const search = searchParams.get("search")?.trim() ?? "";
+    const egeNumberRaw = searchParams.get("egeNumber");
+
+    const parsedEgeNumber = egeNumberRaw ? Number(egeNumberRaw) : null;
+
+    const egeNumber =
+      parsedEgeNumber !== null &&
+      Number.isInteger(parsedEgeNumber) &&
+      parsedEgeNumber >= 1 &&
+      parsedEgeNumber <= 27
+        ? parsedEgeNumber
+        : null;
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        isArchived: false,
+
+        ...(egeNumber !== null
+          ? {
+              egeNumber,
+            }
+          : {}),
+
+        ...(search
+          ? {
+              OR: [
+                {
+                  title: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  statementHtml: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ egeNumber: "asc" }, { createdAt: "desc" }],
+    });
+
+    return NextResponse.json({ tasks });
+  } catch (error) {
+    console.error("[TASKS_GET]", error);
+
+    return NextResponse.json(
+      { message: "Ошибка сервера при загрузке задач" },
+      { status: 500 }
+    );
   }
-
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search")?.trim();
-  const egeNumberRaw = searchParams.get("egeNumber");
-  const egeNumber = egeNumberRaw ? Number(egeNumberRaw) : null;
-
-  const tasks = await prisma.task.findMany({
-    where: {
-      isArchived: false,
-      ...(egeNumber && Number.isInteger(egeNumber)
-        ? { egeNumber }
-        : {}),
-      ...(search
-        ? {
-            OR: [
-              {
-                title: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-              {
-                statementHtml: {
-                  contains: search,
-                  mode: "insensitive",
-                },
-              },
-            ],
-          }
-        : {}),
-    },
-    orderBy: [{ egeNumber: "asc" }, { createdAt: "desc" }],
-  });
-
-  return NextResponse.json({ tasks });
 }
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireTeacher();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (response) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const body = await request.json();
@@ -112,6 +112,7 @@ export async function POST(request: Request) {
     }
 
     const statementHtml = sanitizeEditorHtml(parsed.data.statementHtml);
+
     const explanationHtml = parsed.data.explanationHtml
       ? sanitizeEditorHtml(parsed.data.explanationHtml)
       : null;

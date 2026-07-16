@@ -4,7 +4,8 @@ import path from "path";
 
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiRole } from "@/lib/access";
+import { UserRole } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -19,20 +20,10 @@ const ALLOWED_IMAGE_TYPES = new Map([
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (!user) {
-      return NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== "TEACHER") {
-      return NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      );
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const formData = await request.formData();

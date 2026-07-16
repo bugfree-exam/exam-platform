@@ -5,6 +5,10 @@ import { formatAnswerForDisplay } from "@/lib/answer";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { notFound } from "next/navigation";
+
+import { requireStudentPage } from "@/lib/access";
+
 function getResultBadgeClass(percent: number) {
   if (percent >= 80) {
     return "bg-emerald-50 text-emerald-700";
@@ -18,7 +22,7 @@ function getResultBadgeClass(percent: number) {
 }
 
 export default async function StudentResultsPage() {
-  const user = await getCurrentUser();
+  const user = await requireStudentPage();
 
   if (!user) {
     redirect("/login");

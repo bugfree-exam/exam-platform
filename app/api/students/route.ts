@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiRole } from "@/lib/access";
+import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -13,37 +14,11 @@ const createStudentSchema = z.object({
   password: z.string().min(6, "Пароль должен быть минимум 6 символов"),
 });
 
-async function requireTeacher() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (user.role !== "TEACHER") {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, response: null };
-}
-
 export async function GET() {
-  const { response } = await requireTeacher();
+  const auth = await requireApiRole(UserRole.TEACHER);
 
-  if (response) {
-    return response;
+  if (!auth.ok) {
+    return auth.response;
   }
 
   const students = await prisma.user.findMany({
@@ -80,10 +55,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireTeacher();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (response) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const body = await request.json();

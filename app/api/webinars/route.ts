@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
+import { requireApiRole } from "@/lib/access";
+import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
 import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
@@ -45,38 +46,12 @@ const createWebinarSchema = z.object({
   egeNumber: z.string().optional().nullable(),
 });
 
-async function requireTeacher() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (user.role !== "TEACHER") {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, response: null };
-}
-
 export async function POST(request: Request) {
   try {
-    const { response } = await requireTeacher();
+    const auth = await requireApiRole(UserRole.TEACHER);
 
-    if (response) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
     const body = await request.json();

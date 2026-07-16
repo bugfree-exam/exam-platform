@@ -1,9 +1,9 @@
+import { Prisma, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { requireApiRole } from "@/lib/access";
 import { checkAnswer } from "@/lib/checkAnswer";
-import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -18,40 +18,19 @@ type RouteContext = {
   }>;
 };
 
-async function requireStudent() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Не авторизован" },
-        { status: 401 }
-      ),
-    };
-  }
-
-  if (user.role !== "STUDENT") {
-    return {
-      user: null,
-      response: NextResponse.json(
-        { message: "Недостаточно прав" },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return { user, response: null };
-}
-
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const { user, response } = await requireStudent();
+    /*
+     * Проверяем роль непосредственно внутри API.
+     * Одного middleware для защиты недостаточно.
+     */
+    const auth = await requireApiRole(UserRole.STUDENT);
 
-    if (response || !user) {
-      return response;
+    if (!auth.ok) {
+      return auth.response;
     }
 
+    const user = auth.user;
     const { id: homeworkId } = await context.params;
 
     const body = await request.json();
@@ -64,9 +43,19 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    /*
+     * ДЗ доступно только при одновременном выполнении условий:
+     *
+     * 1. ДЗ существует.
+     * 2. Оно находится в активном статусе ASSIGNED.
+     * 3. Оно назначено текущему ученику.
+     *
+     * Возвращаем 404, а не 403, чтобы не раскрывать существование чужого ДЗ.
+     */
     const homework = await prisma.homework.findFirst({
       where: {
         id: homeworkId,
+        status: "ASSIGNED",
         assignments: {
           some: {
             studentId: user.id,
@@ -87,7 +76,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     if (!homework) {
       return NextResponse.json(
-        { message: "Домашнее задание не найдено" },
+        { message: "Домашнее задание не найдено или недоступно" },
         { status: 404 }
       );
     }
@@ -99,6 +88,10 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    /*
+     * Проверяем только те задачи, которые реально входят в это ДЗ.
+     * Лишние taskId из тела запроса игнорируются.
+     */
     const checkedAnswers = homework.tasks.map((homeworkTask) => {
       const task = homeworkTask.task;
       const studentAnswerText = parsed.data.answers[task.id] ?? "";
@@ -114,7 +107,6 @@ export async function POST(request: Request, context: RouteContext) {
         rawAnswer: studentAnswerText,
         normalizedAnswer: result.normalizedStudentAnswer,
         isCorrect: result.isCorrect,
-        error: result.error ?? null,
       };
     });
 
@@ -122,15 +114,33 @@ export async function POST(request: Request, context: RouteContext) {
     const maxScore = checkedAnswers.length;
     const percent = Math.round((score / maxScore) * 100);
 
+    /*
+     * Порядок задач из HomeworkTask сохраняем отдельно,
+     * чтобы результат отображался в том же порядке, что и само ДЗ.
+     */
+    const taskOrderById = new Map(
+      homework.tasks.map((homeworkTask, index) => [
+        homeworkTask.taskId,
+        index,
+      ])
+    );
+
     const attempt = await prisma.attempt.create({
       data: {
         homeworkId: homework.id,
+
+        /*
+         * Критично: studentId берётся исключительно из JWT-сессии.
+         * Никогда не принимаем studentId из request body.
+         */
         studentId: user.id,
+
         status: "SUBMITTED",
         score,
         maxScore,
         percent,
         submittedAt: new Date(),
+
         answers: {
           create: checkedAnswers.map((answer) => ({
             task: {
@@ -161,13 +171,17 @@ export async function POST(request: Request, context: RouteContext) {
               },
             },
           },
-          orderBy: {
-            task: {
-              egeNumber: "asc",
-            },
-          },
         },
       },
+    });
+
+    const orderedAnswers = [...attempt.answers].sort((first, second) => {
+      const firstOrder =
+        taskOrderById.get(first.taskId) ?? Number.MAX_SAFE_INTEGER;
+      const secondOrder =
+        taskOrderById.get(second.taskId) ?? Number.MAX_SAFE_INTEGER;
+
+      return firstOrder - secondOrder;
     });
 
     return NextResponse.json({
@@ -177,7 +191,12 @@ export async function POST(request: Request, context: RouteContext) {
         maxScore: attempt.maxScore,
         percent: attempt.percent,
         submittedAt: attempt.submittedAt,
-        answers: attempt.answers.map((answer) => ({
+
+        /*
+         * Правильные ответы возвращаются только после успешного создания
+         * попытки. До отправки ДЗ этот API их не раскрывает.
+         */
+        answers: orderedAnswers.map((answer) => ({
           taskId: answer.taskId,
           task: {
             id: answer.task.id,

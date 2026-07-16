@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
+import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const contentHtml = sanitizeEditorHtml(parsed.data.contentHtml);
+
+    if (!hasEditorContent(contentHtml)) {
+      return NextResponse.json(
+        { message: "Добавьте конспект вебинара" },
+        { status: 400 }
+      );
+    }
+
     const eventDate = parsed.data.eventDate
       ? new Date(parsed.data.eventDate)
       : null;
@@ -126,7 +136,7 @@ export async function POST(request: Request) {
       data: {
         title: parsed.data.title.trim(),
         description: parsed.data.description?.trim() || null,
-        contentHtml: parsed.data.contentHtml,
+        contentHtml,
         videoUrl: parsed.data.videoUrl.trim(),
         videoEmbedUrl,
         videoProvider: parsed.data.videoProvider,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { TaskAnswerType } from "@prisma/client";
 import { z } from "zod";
+import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
 import { parseCorrectAnswer } from "@/lib/answer";
 import { getCurrentUser } from "@/lib/auth";
@@ -110,6 +111,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const statementHtml = sanitizeEditorHtml(parsed.data.statementHtml);
+    const explanationHtml = parsed.data.explanationHtml
+      ? sanitizeEditorHtml(parsed.data.explanationHtml)
+      : null;
+
+    if (!hasEditorContent(statementHtml)) {
+      return NextResponse.json(
+        { message: "Добавьте условие задачи" },
+        { status: 400 }
+      );
+    }
+
     let correctAnswer;
 
     try {
@@ -133,10 +146,10 @@ export async function POST(request: Request) {
       data: {
         egeNumber: parsed.data.egeNumber,
         title: parsed.data.title.trim(),
-        statementHtml: parsed.data.statementHtml.trim(),
+        statementHtml,
         answerType: parsed.data.answerType,
         correctAnswer,
-        explanationHtml: parsed.data.explanationHtml?.trim() || null,
+        explanationHtml,
         videoUrl: parsed.data.videoUrl?.trim() || null,
         source: parsed.data.source?.trim() || null,
         difficulty: parsed.data.difficulty ?? null,

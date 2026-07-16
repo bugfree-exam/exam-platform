@@ -15,6 +15,8 @@
     "@prisma/client": "^6.19.3",
     "@tiptap/extension-image": "^3.27.3",
     "@tiptap/extension-link": "^3.27.3",
+    "@tiptap/extension-subscript": "^3.27.3",
+    "@tiptap/extension-superscript": "^3.27.3",
     "@tiptap/extension-table": "^3.27.3",
     "@tiptap/extension-text-align": "^3.27.3",
     "@tiptap/extension-underline": "^3.27.3",
@@ -27,6 +29,7 @@
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "sanitize-html": "^2.17.6",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -34,6 +37,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sanitize-html": "^2.16.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "prisma": "^6.19.3",

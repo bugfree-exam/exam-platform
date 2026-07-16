@@ -13,6 +13,8 @@ import {
 } from "@tiptap/extension-table";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Underline } from "@tiptap/extension-underline";
+import { Superscript } from "@tiptap/extension-superscript"; // 👈 Новое
+import { Subscript } from "@tiptap/extension-subscript"; // 👈 Новое
 
 type RichTextEditorProps = {
   value: string;
@@ -60,6 +62,8 @@ export function RichTextEditor({
     extensions: [
       StarterKit,
       Underline,
+      Superscript, // 👈 Добавляем
+      Subscript, // 👈 Добавляем
       Image.configure({
         allowBase64: false,
         HTMLAttributes: {
@@ -93,17 +97,17 @@ export function RichTextEditor({
     },
   });
 
-    if (!editor) {
-        return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-            Загружаем редактор...
-        </div>
-        );
-    }
+  if (!editor) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+        Загружаем редактор...
+      </div>
+    );
+  }
 
-    const activeEditor = editor;
+  const activeEditor = editor;
 
-    function addImageByUrl() {
+  function addImageByUrl() {
     const url = window.prompt("Вставь ссылку на картинку");
 
     if (!url?.trim()) {
@@ -203,6 +207,21 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().toggleStrike().run()}
         >
           S
+        </ToolbarButton>
+
+        {/* 👇 Новые кнопки для надстрочного и подстрочного текста */}
+        <ToolbarButton
+          active={editor.isActive("superscript")}
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        >
+          x²
+        </ToolbarButton>
+
+        <ToolbarButton
+          active={editor.isActive("subscript")}
+          onClick={() => editor.chain().focus().toggleSubscript().run()}
+        >
+          x₂
         </ToolbarButton>
 
         <ToolbarButton

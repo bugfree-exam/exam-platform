@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
+import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
 export const runtime = "nodejs";
 
@@ -87,6 +88,15 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
+    const contentHtml = sanitizeEditorHtml(parsed.data.contentHtml);
+
+    if (!hasEditorContent(contentHtml)) {
+      return NextResponse.json(
+        { message: "Добавьте конспект вебинара" },
+        { status: 400 }
+      );
+    }
+
     const existingWebinar = await prisma.webinar.findUnique({
       where: {
         id,
@@ -145,7 +155,7 @@ export async function PUT(request: Request, context: RouteContext) {
         data: {
           title: parsed.data.title.trim(),
           description: parsed.data.description?.trim() || null,
-          contentHtml: parsed.data.contentHtml,
+          contentHtml,
           videoUrl: parsed.data.videoUrl.trim(),
           videoEmbedUrl,
           videoProvider: parsed.data.videoProvider,

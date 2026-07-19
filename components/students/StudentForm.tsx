@@ -55,12 +55,24 @@ export function StudentForm() {
     }
   }
 
-  async function copyAccess() {
-    const text = `Доступ к платформе "Экзамен без багов"\n\nСсылка: http://localhost:3000/login\nЛогин: ${email}\nПароль: ${password}`;
+ async function copyAccess() {
+  const loginUrl = `${window.location.origin}/login`;
 
+  const text = [
+    'Доступ к платформе "Экзамен без багов"',
+    "",
+    `Ссылка: ${loginUrl}`,
+    `Логин: ${email}`,
+    `Пароль: ${password}`,
+  ].join("\n");
+
+  try {
     await navigator.clipboard.writeText(text);
     alert("Доступы скопированы");
+  } catch {
+    alert("Не удалось скопировать доступы");
   }
+}
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

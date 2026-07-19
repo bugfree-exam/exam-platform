@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AUTH_COOKIE_NAME, verifySessionToken } from "@/lib/session";
+import { verifySessionToken } from "@/lib/session";
+import { SESSION_COOKIE_NAME } from "@/lib/sessionCookie";
 
 const AUTH_ROUTES = ["/login"];
 const AUTH_API_ROUTES = [
   "/api/auth/login",
   "/api/auth/logout",
-  "/api/auth/me",
 ];
 
 function isAuthApiRoute(pathname: string) {
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const user = await verifySessionToken(token);
 
   if (pathname === "/") {

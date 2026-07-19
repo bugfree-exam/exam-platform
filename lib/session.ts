@@ -1,6 +1,7 @@
 import { jwtVerify, SignJWT } from "jose";
 
-export const AUTH_COOKIE_NAME = "exam_platform_token";
+import { env } from "@/lib/env";
+import { SESSION_TTL_SECONDS } from "@/lib/sessionCookie";
 
 export type SessionUserRole = "TEACHER" | "STUDENT";
 
@@ -12,25 +13,24 @@ export type SessionUser = {
 };
 
 function getJwtSecret() {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is not defined");
-  }
-
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(env.JWT_SECRET);
 }
 
 export async function createSessionToken(user: SessionUser) {
+  const issuedAt = Math.floor(Date.now() / 1000);
+
   return new SignJWT({
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
   })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
+    .setProtectedHeader({
+      alg: "HS256",
+      typ: "JWT",
+    })
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(issuedAt + SESSION_TTL_SECONDS)
     .sign(getJwtSecret());
 }
 
@@ -42,7 +42,9 @@ export async function verifySessionToken(
   }
 
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, getJwtSecret(), {
+      algorithms: ["HS256"],
+    });
 
     const id = payload.id;
     const email = payload.email;

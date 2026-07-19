@@ -6,13 +6,27 @@ export function LogoutButton() {
   const router = useRouter();
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", {
+  try {
+    const response = await fetch("/api/auth/logout", {
       method: "POST",
+      credentials: "include",
+      cache: "no-store",
     });
 
-    router.replace("/login");
-    router.refresh();
+    if (!response.ok) {
+      throw new Error("Не удалось выйти из аккаунта");
+    }
+
+    /*
+     * Для logout делаем полную перезагрузку страницы.
+     * Это очищает клиентское состояние и заново проверяет сессию.
+     */
+    window.location.replace("/login");
+  } catch (error) {
+    console.error("[LOGOUT]", error);
+    alert("Не удалось выйти из аккаунта");
   }
+}
 
   return (
     <button

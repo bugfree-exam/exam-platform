@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { env } from "@/lib/env";
 
 import { NextResponse } from "next/server";
 
@@ -53,7 +54,9 @@ export async function POST(request: Request) {
     const extension = ALLOWED_IMAGE_TYPES.get(file.type);
     const fileName = `${randomUUID()}.${extension}`;
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    const uploadDir = path.isAbsolute(env.UPLOAD_DIR)
+      ? env.UPLOAD_DIR
+      : path.resolve(process.cwd(), env.UPLOAD_DIR);
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();

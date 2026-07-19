@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { AUTH_COOKIE_NAME, createSessionToken } from "@/lib/session";
+import { createSessionToken } from "@/lib/session";
+import {
+  getSessionCookieOptions,
+  SESSION_COOKIE_NAME,
+} from "@/lib/sessionCookie";
 
 export const runtime = "nodejs";
 
@@ -14,26 +18,47 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: unknown = await request.json();
     const parsed = loginSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { message: "Некорректные данные для входа" },
-        { status: 400 }
+        {
+          message: "Некорректные данные для входа",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     const email = parsed.data.email.trim().toLowerCase();
 
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        passwordHash: true,
+      },
     });
 
+    /*
+     * Для отсутствующего пользователя и неверного пароля возвращаем
+     * одинаковое сообщение, чтобы не раскрывать наличие аккаунта.
+     */
     if (!user) {
       return NextResponse.json(
-        { message: "Неверная почта или пароль" },
-        { status: 401 }
+        {
+          message: "Неверная почта или пароль",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -44,8 +69,12 @@ export async function POST(request: Request) {
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { message: "Неверная почта или пароль" },
-        { status: 401 }
+        {
+          message: "Неверная почта или пароль",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -62,23 +91,30 @@ export async function POST(request: Request) {
       user: sessionUser,
     });
 
-    response.cookies.set({
-      name: AUTH_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    /*
+     * Все параметры cookie находятся в одном месте:
+     * lib/sessionCookie.ts.
+     *
+     * Там задаются httpOnly, secure, sameSite, path,
+     * maxAge и priority.
+     */
+    response.cookies.set(
+      SESSION_COOKIE_NAME,
+      token,
+      getSessionCookieOptions()
+    );
 
     return response;
   } catch (error) {
     console.error("[AUTH_LOGIN]", error);
 
     return NextResponse.json(
-      { message: "Ошибка сервера при входе" },
-      { status: 500 }
+      {
+        message: "Ошибка сервера при входе",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

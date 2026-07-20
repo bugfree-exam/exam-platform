@@ -52,6 +52,12 @@ FROM base AS migrator
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Временный адрес нужен только на этапе генерации Prisma Client.
+# Подключение к реальной базе здесь не выполняется.
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
+
+RUN npx prisma generate
+
 CMD ["npx", "prisma", "migrate", "deploy"]
 
 

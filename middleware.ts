@@ -27,6 +27,11 @@ function redirectByRole(request: NextRequest, role: "TEACHER" | "STUDENT") {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Публичный технический маршрут для Docker и nginx
+  if (pathname === "/api/health") {
+    return NextResponse.next();
+  }
+
   if (isAuthApiRoute(pathname)) {
     return NextResponse.next();
   }

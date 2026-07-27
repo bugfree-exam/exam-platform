@@ -9,6 +9,8 @@ const ALLOWED_TAGS = [
   "i",
   "u",
   "s",
+  "sub",
+  "sup",
   "blockquote",
   "hr",
 

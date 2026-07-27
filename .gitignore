@@ -60,3 +60,6 @@ storage/*
 
 /backups/
 /.restore-test/
+
+storage/task-files/*
+!storage/task-files/.gitkeep

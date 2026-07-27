@@ -67,7 +67,7 @@ model User {
 }
 
 model Task {
-  id              String         @id @default(cuid())
+  id              String           @id @default(cuid())
   egeNumber       Int
   title           String
   statementHtml   String
@@ -77,7 +77,8 @@ model Task {
   videoUrl        String?
   source          String?
   difficulty      Int?
-  isArchived Boolean @default(false)
+  isArchived      Boolean          @default(false)
+  attachments     TaskAttachment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -86,6 +87,23 @@ model Task {
   attemptAnswers AttemptAnswer[]
 
   @@index([egeNumber])
+}
+
+model TaskAttachment {
+  id String @id @default(cuid())
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  originalName String
+  storedName   String @unique
+  extension    String
+  mimeType     String
+  sizeBytes    Int
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 model Homework {
@@ -145,8 +163,8 @@ model Attempt {
   startedAt   DateTime  @default(now())
   submittedAt DateTime?
 
-  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  student  User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  homework Homework        @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
   answers  AttemptAnswer[]
 
   @@index([homeworkId])
@@ -179,8 +197,8 @@ model Webinar {
   videoEmbedUrl String?
   videoProvider WebinarVideoProvider @default(RUTUBE)
   status        WebinarStatus        @default(DRAFT)
-  topic     String?
-  egeNumber Int?
+  topic         String?
+  egeNumber     Int?
 
   eventDate   DateTime?
   publishedAt DateTime?

@@ -2,7 +2,12 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import {
+  TaskAttachmentsField,
+  type TaskAttachmentItem,
+} from "@/components/tasks/TaskAttachmentsField";
 
 type AnswerType =
   | "TEXT"
@@ -22,6 +27,7 @@ type TaskFormInitialData = {
   videoUrl: string;
   source: string;
   difficulty: number | null;
+  attachments: TaskAttachmentItem[];
 };
 
 type TaskFormProps = {
@@ -67,7 +73,86 @@ const DEFAULT_DATA: TaskFormInitialData = {
   videoUrl: "",
   source: "",
   difficulty: null,
+  attachments: [],
 };
+
+
+const MAX_TASK_FILES = 5;
+const MAX_TASK_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const ALLOWED_TASK_FILE_EXTENSIONS = new Set([
+  ".txt",
+  ".odt",
+  ".ods",
+  ".xls",
+  ".doc",
+]);
+
+function getFileExtension(filename: string) {
+  const dotIndex = filename.lastIndexOf(".");
+
+  if (dotIndex < 0) {
+    return "";
+  }
+
+  return filename.slice(dotIndex).toLowerCase();
+}
+
+function validateSelectedFiles(files: File[], currentCount: number) {
+  if (files.length === 0) {
+    return "Выберите хотя бы один файл";
+  }
+
+  if (currentCount + files.length > MAX_TASK_FILES) {
+    return `К задаче можно прикрепить не более ${MAX_TASK_FILES} файлов`;
+  }
+
+  for (const file of files) {
+    const extension = getFileExtension(file.name);
+
+    if (!ALLOWED_TASK_FILE_EXTENSIONS.has(extension)) {
+      return `Файл «${file.name}» имеет неподдерживаемый формат`;
+    }
+
+    if (file.size <= 0) {
+      return `Файл «${file.name}» пуст`;
+    }
+
+    if (file.size > MAX_TASK_FILE_SIZE_BYTES) {
+      return `Файл «${file.name}» превышает допустимый размер 20 МБ`;
+    }
+  }
+
+  return null;
+}
+
+async function uploadTaskFiles(
+  taskId: string,
+  files: File[]
+): Promise<TaskAttachmentItem[]> {
+  const formData = new FormData();
+
+  for (const file of files) {
+    formData.append("files", file);
+  }
+
+  const response = await fetch(`/api/tasks/${taskId}/attachments`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const result = (await response.json().catch(() => null)) as
+    | {
+        message?: string;
+        attachments?: TaskAttachmentItem[];
+      }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(result?.message || "Не удалось загрузить файлы");
+  }
+
+  return result?.attachments ?? [];
+}
 
 export function TaskForm({ mode, initialData }: TaskFormProps) {
   const router = useRouter();
@@ -86,13 +171,122 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
   const [source, setSource] = useState(data.source);
   const [difficulty, setDifficulty] = useState<number | null>(data.difficulty);
 
+  const [attachments, setAttachments] = useState<TaskAttachmentItem[]>(
+    data.attachments
+  );
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [persistedTaskId, setPersistedTaskId] = useState<string | null>(
+    initialData?.id ?? null
+  );
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<
+    string | null
+  >(null);
+
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const selectedAnswerType = useMemo(
     () => ANSWER_TYPES.find((item) => item.value === answerType),
     [answerType]
   );
+
+  async function handleSelectedFiles(files: File[]) {
+    setError("");
+
+    const validationError = validateSelectedFiles(
+      files,
+      attachments.length + pendingFiles.length
+    );
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    if (!persistedTaskId) {
+      setPendingFiles((current) => [...current, ...files]);
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const uploadedAttachments = await uploadTaskFiles(
+        persistedTaskId,
+        files
+      );
+
+      setAttachments((current) => [
+        ...current,
+        ...uploadedAttachments,
+      ]);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Не удалось загрузить файлы"
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleRemovePendingFile(index: number) {
+    setPendingFiles((current) =>
+      current.filter((_, currentIndex) => currentIndex !== index)
+    );
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!persistedTaskId) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      "Удалить этот файл из задания?"
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setError("");
+    setDeletingAttachmentId(attachmentId);
+
+    try {
+      const response = await fetch(
+        `/api/tasks/${persistedTaskId}/attachments/${attachmentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = (await response.json().catch(() => null)) as
+        | {
+            message?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(result?.message || "Не удалось удалить файл");
+      }
+
+      setAttachments((current) =>
+        current.filter(
+          (attachment) => attachment.id !== attachmentId
+        )
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Не удалось удалить файл"
+      );
+    } finally {
+      setDeletingAttachmentId(null);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,11 +295,14 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
     setIsSaving(true);
 
     try {
-      const url =
-        mode === "create" ? "/api/tasks" : `/api/tasks/${initialData?.id}`;
+      const taskAlreadyExists = Boolean(persistedTaskId);
+
+      const url = taskAlreadyExists
+        ? `/api/tasks/${persistedTaskId}`
+        : "/api/tasks";
 
       const response = await fetch(url, {
-        method: mode === "create" ? "POST" : "PUT",
+        method: taskAlreadyExists ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -122,14 +319,52 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json().catch(() => null)) as
+        | {
+            message?: string;
+            task?: {
+              id: string;
+            };
+          }
+        | null;
 
-      if (!response.ok) {
-        setError(result.message || "Не удалось сохранить задачу");
+      if (!response.ok || !result?.task?.id) {
+        setError(result?.message || "Не удалось сохранить задачу");
         return;
       }
 
-      router.push(`/teacher/tasks/${result.task.id}`);
+      const taskId = result.task.id;
+      setPersistedTaskId(taskId);
+
+      if (pendingFiles.length > 0) {
+        setIsUploading(true);
+
+        try {
+          const uploadedAttachments = await uploadTaskFiles(
+            taskId,
+            pendingFiles
+          );
+
+          setAttachments((current) => [
+            ...current,
+            ...uploadedAttachments,
+          ]);
+          setPendingFiles([]);
+        } catch (uploadError) {
+          setError(
+            `Задача сохранена, но файлы не загрузились. ${
+              uploadError instanceof Error
+                ? uploadError.message
+                : "Повторите попытку"
+            }`
+          );
+          return;
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
+      router.push(`/teacher/tasks/${taskId}`);
       router.refresh();
     } catch {
       setError("Не удалось подключиться к серверу");
@@ -192,6 +427,16 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
           Можно добавлять форматирование, картинки, ссылки, списки и таблицы.
         </p>
       </div>
+
+      <TaskAttachmentsField
+        attachments={attachments}
+        pendingFiles={pendingFiles}
+        isBusy={isSaving || isUploading}
+        deletingAttachmentId={deletingAttachmentId}
+        onSelectFiles={handleSelectedFiles}
+        onRemovePendingFile={handleRemovePendingFile}
+        onDeleteAttachment={handleDeleteAttachment}
+      />
 
       <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
         <div>
@@ -294,14 +539,16 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={isSaving}
+          disabled={isSaving || isUploading}
           className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving
-            ? "Сохраняем..."
-            : mode === "create"
-              ? "Создать задачу"
-              : "Сохранить изменения"}
+          {isUploading
+            ? "Загружаем файлы..."
+            : isSaving
+              ? "Сохраняем..."
+              : mode === "create" && !persistedTaskId
+                ? "Создать задачу"
+                : "Сохранить изменения"}
         </button>
 
         <button

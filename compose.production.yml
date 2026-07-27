@@ -68,9 +68,11 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE}
 
       UPLOAD_DIR: /app/public/uploads
+      TASK_FILES_DIR: /app/storage/task-files
 
     volumes:
       - ./storage/uploads:/app/public/uploads
+      - ./storage/task-files:/app/storage/task-files
 
     ports:
       - "127.0.0.1:3000:3000"

@@ -44,6 +44,23 @@ export async function GET(_request: Request, context: RouteContext) {
       id,
       isArchived: false,
     },
+
+    include: {
+      attachments: {
+        select: {
+          id: true,
+          originalName: true,
+          extension: true,
+          mimeType: true,
+          sizeBytes: true,
+          createdAt: true,
+        },
+
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
   });
 
   if (!task) {
@@ -126,6 +143,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const task = await prisma.task.update({
       where: { id },
+
       data: {
         egeNumber: parsed.data.egeNumber,
         title: parsed.data.title.trim(),
@@ -136,6 +154,23 @@ export async function PUT(request: Request, context: RouteContext) {
         videoUrl: parsed.data.videoUrl?.trim() || null,
         source: parsed.data.source?.trim() || null,
         difficulty: parsed.data.difficulty ?? null,
+      },
+
+      include: {
+        attachments: {
+          select: {
+            id: true,
+            originalName: true,
+            extension: true,
+            mimeType: true,
+            sizeBytes: true,
+            createdAt: true,
+          },
+
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
     });
 

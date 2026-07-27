@@ -9,6 +9,13 @@ type AnswerType =
   | "PAIR_LIST_ORDERED"
   | "PAIR_LIST_UNORDERED";
 
+type StudentTaskAttachment = {
+  id: string;
+  originalName: string;
+  extension: string;
+  sizeBytes: number;
+};
+
 type StudentTask = {
   id: string;
   egeNumber: number;
@@ -16,6 +23,7 @@ type StudentTask = {
   statementHtml: string;
   answerType: AnswerType;
   difficulty: number | null;
+  attachments: StudentTaskAttachment[];
 
   /**
    * Эти поля появляются только после сдачи ДЗ.
@@ -104,6 +112,33 @@ function formatAnswer(answer: unknown) {
   }
 
   return String(answer);
+}
+
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} Б`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.ceil(sizeBytes / 1024)} КБ`;
+  }
+
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} МБ`;
+}
+
+function getAttachmentBadge(extension: string) {
+  switch (extension.toLowerCase()) {
+    case ".txt":
+      return "TXT";
+    case ".ods":
+    case ".xls":
+      return "XLS";
+    case ".odt":
+    case ".doc":
+      return "DOC";
+    default:
+      return "FILE";
+  }
 }
 
 function getResultTitle(percent: number) {
@@ -499,6 +534,45 @@ export function HomeworkSolveForm({
               className="prose prose-slate mt-4 max-w-none"
               dangerouslySetInnerHTML={{ __html: task.statementHtml }}
             />
+
+            {task.attachments.length > 0 ? (
+              <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">
+                <div className="text-sm font-bold text-slate-950">
+                  Файлы к заданию
+                </div>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Скачай исходные данные перед решением задачи.
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  {task.attachments.map((attachment) => (
+                    <a
+                      key={attachment.id}
+                      href={`/api/task-attachments/${attachment.id}/download`}
+                      download
+                      className="flex items-center gap-3 rounded-xl border border-cyan-100 bg-white px-3 py-3 transition hover:border-cyan-300 hover:shadow-sm"
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-950 font-mono text-[10px] font-bold text-cyan-300">
+                        {getAttachmentBadge(attachment.extension)}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-900">
+                          {attachment.originalName}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {formatFileSize(attachment.sizeBytes)}
+                        </span>
+                      </span>
+
+                      <span className="shrink-0 text-sm font-bold text-cyan-700">
+                        Скачать ↓
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-5">
               <label className="mb-2 block text-sm font-medium text-slate-700">

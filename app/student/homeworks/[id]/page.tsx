@@ -91,6 +91,17 @@ export default async function StudentHomeworkPage({
               answerType: true,
               difficulty: true,
               isArchived: true,
+              attachments: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  extension: true,
+                  sizeBytes: true,
+                },
+                orderBy: {
+                  createdAt: "asc",
+                },
+              },
             },
           },
         },
@@ -142,6 +153,7 @@ export default async function StudentHomeworkPage({
       statementHtml: homeworkTask.task.statementHtml,
       answerType: homeworkTask.task.answerType,
       difficulty: homeworkTask.task.difficulty,
+      attachments: homeworkTask.task.attachments,
     }));
 
   const previousAttempt = homework.attempts[0] ?? null;

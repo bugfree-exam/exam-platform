@@ -19,6 +19,19 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
       id,
       isArchived: false,
     },
+    include: {
+      attachments: {
+        select: {
+          id: true,
+          originalName: true,
+          extension: true,
+          sizeBytes: true,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
   });
 
   if (!task) {
@@ -57,6 +70,7 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
               videoUrl: task.videoUrl ?? "",
               source: task.source ?? "",
               difficulty: task.difficulty,
+              attachments: task.attachments,
             }}
           />
         </section>

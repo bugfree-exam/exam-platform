@@ -41,6 +41,7 @@ function formatDateTime(value: Date | null) {
   if (!value) return "Пока не зафиксирована";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "long",
     year: "numeric",

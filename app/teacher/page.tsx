@@ -17,6 +17,7 @@ function formatDateTime(value: Date | null) {
   if (!value) return "Дата не указана";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -26,6 +27,7 @@ function formatDateTime(value: Date | null) {
 
 function formatDate(value: Date) {
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -53,6 +55,7 @@ function getRelativeTime(value: Date | null, now: Date) {
   if (days < 30) return `${days} дн. назад`;
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "short",
     year: "numeric",

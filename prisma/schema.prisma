@@ -12,6 +12,12 @@ enum UserRole {
   STUDENT
 }
 
+enum StudentAccountStatus {
+  ACTIVE
+  FROZEN
+  ARCHIVED
+}
+
 enum TaskAnswerType {
   TEXT
   NUMBER
@@ -64,6 +70,15 @@ model User {
 
   assignedHomeworks HomeworkAssignment[]
   attempts          Attempt[]
+
+  lastActivityAt DateTime?
+
+  studentStatus      StudentAccountStatus @default(ACTIVE)
+  webinarAccessUntil DateTime?
+  frozenAt           DateTime?
+  archivedAt         DateTime?
+
+  publishedAt DateTime?
 }
 
 model Task {

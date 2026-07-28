@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function requireApiUser() {
   const user = await getCurrentUser();
@@ -70,6 +71,15 @@ export async function requireStudentPage() {
   if (user.role !== UserRole.STUDENT) {
     redirect("/teacher");
   }
+
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      lastActivityAt: new Date(),
+    },
+  });
 
   return user;
 }

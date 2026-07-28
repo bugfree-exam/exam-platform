@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
     const uploadDir = path.isAbsolute(env.UPLOAD_DIR)
       ? env.UPLOAD_DIR
-      : path.resolve(process.cwd(), env.UPLOAD_DIR);
+      : path.join("public", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();

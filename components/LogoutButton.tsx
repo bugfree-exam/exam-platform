@@ -1,32 +1,28 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 export function LogoutButton() {
-  const router = useRouter();
-
   async function handleLogout() {
-  try {
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-      cache: "no-store",
-    });
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+      });
 
-    if (!response.ok) {
-      throw new Error("Не удалось выйти из аккаунта");
+      if (!response.ok) {
+        throw new Error("Не удалось выйти из аккаунта");
+      }
+
+      /*
+       * Для logout делаем полную перезагрузку страницы.
+       * Это очищает клиентское состояние и заново проверяет сессию.
+       */
+      window.location.replace("/login");
+    } catch (error) {
+      console.error("[LOGOUT]", error);
+      alert("Не удалось выйти из аккаунта");
     }
-
-    /*
-     * Для logout делаем полную перезагрузку страницы.
-     * Это очищает клиентское состояние и заново проверяет сессию.
-     */
-    window.location.replace("/login");
-  } catch (error) {
-    console.error("[LOGOUT]", error);
-    alert("Не удалось выйти из аккаунта");
   }
-}
 
   return (
     <button

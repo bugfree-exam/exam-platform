@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type LoginResponse = {
   user?: {
@@ -316,6 +317,13 @@ export default function LoginPage() {
                 Доступ к платформе предоставляется ученикам курса и
                 преподавателям.
               </p>
+
+              <Link
+                href="/practice"
+                className="mt-4 flex w-full items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 transition hover:bg-cyan-100"
+              >
+                Открыть банк заданий без регистрации →
+              </Link>
             </div>
           </section>
         </div>

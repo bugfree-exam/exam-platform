@@ -14,6 +14,7 @@ export default async function CreateHomeworkPage() {
         egeNumber: true,
         title: true,
         difficulty: true,
+        isArchived: true,
       },
       orderBy: [{ egeNumber: "asc" }, { createdAt: "desc" }],
     }),
@@ -26,6 +27,7 @@ export default async function CreateHomeworkPage() {
         id: true,
         name: true,
         email: true,
+        studentStatus: true,
       },
       orderBy: {
         name: "asc",

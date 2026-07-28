@@ -144,6 +144,14 @@ export async function PUT(request: Request, context: RouteContext) {
       },
       include: {
         assignments: true,
+        tasks: {
+          orderBy: {
+            order: "asc",
+          },
+          select: {
+            taskId: true,
+          },
+        },
         attempts: {
           where: {
             status: "SUBMITTED",
@@ -166,12 +174,22 @@ export async function PUT(request: Request, context: RouteContext) {
     const uniqueTaskIds = Array.from(new Set(parsed.data.taskIds));
     const uniqueStudentIds = Array.from(new Set(parsed.data.studentIds));
 
+    const currentTaskIds = homework.tasks.map((task) => task.taskId);
     const tasks = await prisma.task.findMany({
       where: {
         id: {
           in: uniqueTaskIds,
         },
-        isArchived: false,
+        OR: [
+          {
+            isArchived: false,
+          },
+          {
+            id: {
+              in: currentTaskIds,
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -182,6 +200,22 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json(
         { message: "Некоторые задачи не найдены или находятся в архиве" },
         { status: 400 }
+      );
+    }
+
+    const taskCompositionChanged =
+      uniqueTaskIds.length !== currentTaskIds.length ||
+      uniqueTaskIds.some(
+        (taskId, index) => taskId !== currentTaskIds[index]
+      );
+
+    if (homework.attempts.length > 0 && taskCompositionChanged) {
+      return NextResponse.json(
+        {
+          message:
+            "Нельзя менять состав или порядок задач после первой отправленной попытки. Создайте новое ДЗ.",
+        },
+        { status: 409 }
       );
     }
 
@@ -263,11 +297,13 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const updatedHomework = await prisma.$transaction(async (tx) => {
-      await tx.homeworkTask.deleteMany({
-        where: {
-          homeworkId: id,
-        },
-      });
+      if (taskCompositionChanged) {
+        await tx.homeworkTask.deleteMany({
+          where: {
+            homeworkId: id,
+          },
+        });
+      }
 
       if (studentsToRemove.length > 0) {
         await tx.homeworkAssignment.deleteMany({
@@ -288,12 +324,16 @@ export async function PUT(request: Request, context: RouteContext) {
           title: parsed.data.title.trim(),
           description: parsed.data.description?.trim() || null,
           deadline: parsedDeadline.value,
-          tasks: {
-            create: uniqueTaskIds.map((taskId, index) => ({
-              taskId,
-              order: index + 1,
-            })),
-          },
+          ...(taskCompositionChanged
+            ? {
+                tasks: {
+                  create: uniqueTaskIds.map((taskId, index) => ({
+                    taskId,
+                    order: index + 1,
+                  })),
+                },
+              }
+            : {}),
           assignments: {
             create: studentsToAdd.map((studentId) => ({
               studentId,

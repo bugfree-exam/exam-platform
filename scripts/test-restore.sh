@@ -33,6 +33,7 @@ fi
 
 DATABASE_DUMP="$BACKUP_DIR/database.dump"
 UPLOADS_ARCHIVE="$BACKUP_DIR/uploads.tar.gz"
+TASK_FILES_ARCHIVE="$BACKUP_DIR/task-files.tar.gz"
 
 if [[ ! -s "$DATABASE_DUMP" ]]; then
   echo "Не найден дамп базы: $DATABASE_DUMP" >&2
@@ -41,6 +42,11 @@ fi
 
 if [[ ! -s "$UPLOADS_ARCHIVE" ]]; then
   echo "Не найден архив uploads: $UPLOADS_ARCHIVE" >&2
+  exit 1
+fi
+
+if [[ ! -s "$TASK_FILES_ARCHIVE" ]]; then
+  echo "Не найден архив файлов заданий: $TASK_FILES_ARCHIVE" >&2
   exit 1
 fi
 
@@ -109,8 +115,17 @@ tar \
   -xzf "$UPLOADS_ARCHIVE" \
   -C "$RESTORE_FILES_DIR"
 
+tar \
+  -xzf "$TASK_FILES_ARCHIVE" \
+  -C "$RESTORE_FILES_DIR"
+
 if [[ ! -d "$RESTORE_FILES_DIR/uploads" ]]; then
   echo "Архив uploads восстановился некорректно" >&2
+  exit 1
+fi
+
+if [[ ! -d "$RESTORE_FILES_DIR/task-files" ]]; then
+  echo "Архив файлов заданий восстановился некорректно" >&2
   exit 1
 fi
 
@@ -118,8 +133,13 @@ RESTORED_FILE_COUNT="$(
   find "$RESTORE_FILES_DIR/uploads" -type f | wc -l | tr -d " "
 )"
 
+RESTORED_TASK_FILE_COUNT="$(
+  find "$RESTORE_FILES_DIR/task-files" -type f | wc -l | tr -d " "
+)"
+
 echo ""
 echo "Тест восстановления выполнен успешно."
 echo "Резервная копия: $BACKUP_DIR"
 echo "Тестовая база: $RESTORE_DATABASE"
 echo "Файлов в uploads: $RESTORED_FILE_COUNT"
+echo "Вложений заданий: $RESTORED_TASK_FILE_COUNT"

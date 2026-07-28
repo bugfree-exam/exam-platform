@@ -145,7 +145,6 @@ export default async function TeacherHomeworksReviewPage() {
   let submittedCount = 0;
   let unsubmittedCount = 0;
   let needsAttentionCount = 0;
-  let perfectCount = 0;
 
   const attentionItems: {
     homeworkId: string;
@@ -184,10 +183,6 @@ export default async function TeacherHomeworksReviewPage() {
       }
 
       submittedCount += 1;
-
-      if (latestAttempt.percent === 100) {
-        perfectCount += 1;
-      }
 
       if (latestAttempt.percent < 70) {
         needsAttentionCount += 1;

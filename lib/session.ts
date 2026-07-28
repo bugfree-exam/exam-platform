@@ -12,11 +12,15 @@ export type SessionUser = {
   role: SessionUserRole;
 };
 
+export type SessionTokenUser = SessionUser & {
+  sessionVersion: number;
+};
+
 function getJwtSecret() {
   return new TextEncoder().encode(env.JWT_SECRET);
 }
 
-export async function createSessionToken(user: SessionUser) {
+export async function createSessionToken(user: SessionTokenUser) {
   const issuedAt = Math.floor(Date.now() / 1000);
 
   return new SignJWT({
@@ -24,6 +28,7 @@ export async function createSessionToken(user: SessionUser) {
     email: user.email,
     name: user.name,
     role: user.role,
+    sessionVersion: user.sessionVersion,
   })
     .setProtectedHeader({
       alg: "HS256",
@@ -36,7 +41,7 @@ export async function createSessionToken(user: SessionUser) {
 
 export async function verifySessionToken(
   token: string | undefined
-): Promise<SessionUser | null> {
+): Promise<SessionTokenUser | null> {
   if (!token) {
     return null;
   }
@@ -50,11 +55,15 @@ export async function verifySessionToken(
     const email = payload.email;
     const name = payload.name;
     const role = payload.role;
+    const sessionVersion = payload.sessionVersion;
 
     if (
       typeof id !== "string" ||
       typeof email !== "string" ||
       typeof name !== "string" ||
+      typeof sessionVersion !== "number" ||
+      !Number.isInteger(sessionVersion) ||
+      sessionVersion < 0 ||
       (role !== "TEACHER" && role !== "STUDENT")
     ) {
       return null;
@@ -65,6 +74,7 @@ export async function verifySessionToken(
       email,
       name,
       role,
+      sessionVersion,
     };
   } catch {
     return null;

@@ -61,6 +61,9 @@ export async function POST(_request: Request, context: RouteContext) {
       },
       data: {
         passwordHash,
+        sessionVersion: {
+          increment: 1,
+        },
       },
     });
 

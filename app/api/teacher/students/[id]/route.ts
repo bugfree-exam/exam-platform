@@ -77,12 +77,18 @@ export async function PATCH(request: Request, context: RouteContext) {
           ? {
               studentStatus: StudentAccountStatus.ARCHIVED,
               archivedAt: now,
+              sessionVersion: {
+                increment: 1,
+              },
             }
           : {
               studentStatus: StudentAccountStatus.ACTIVE,
               archivedAt: null,
               frozenAt: null,
               webinarAccessUntil: null,
+              sessionVersion: {
+                increment: 1,
+              },
             },
       select: {
         id: true,

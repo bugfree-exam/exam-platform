@@ -20,6 +20,7 @@ BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
 
 mkdir -p "$BACKUP_DIR"
 mkdir -p "$ROOT_DIR/storage/uploads"
+mkdir -p "$ROOT_DIR/storage/task-files"
 
 echo "Создаём дамп PostgreSQL..."
 
@@ -47,21 +48,29 @@ tar \
   -czf "$BACKUP_DIR/uploads.tar.gz" \
   uploads
 
+echo "Архивируем файлы заданий..."
+
+tar \
+  -C "$ROOT_DIR/storage" \
+  -czf "$BACKUP_DIR/task-files.tar.gz" \
+  task-files
+
 cat > "$BACKUP_DIR/manifest.txt" <<EOF
 created_at=$TIMESTAMP
 database_file=database.dump
 uploads_file=uploads.tar.gz
+task_files_file=task-files.tar.gz
 EOF
 
 if command -v sha256sum >/dev/null 2>&1; then
   (
     cd "$BACKUP_DIR"
-    sha256sum database.dump uploads.tar.gz > SHA256SUMS
+    sha256sum database.dump uploads.tar.gz task-files.tar.gz > SHA256SUMS
   )
 elif command -v shasum >/dev/null 2>&1; then
   (
     cd "$BACKUP_DIR"
-    shasum -a 256 database.dump uploads.tar.gz > SHA256SUMS
+    shasum -a 256 database.dump uploads.tar.gz task-files.tar.gz > SHA256SUMS
   )
 fi
 
@@ -69,4 +78,7 @@ echo ""
 echo "Резервная копия создана:"
 echo "$BACKUP_DIR"
 echo ""
-du -h "$BACKUP_DIR/database.dump" "$BACKUP_DIR/uploads.tar.gz"
+du -h \
+  "$BACKUP_DIR/database.dump" \
+  "$BACKUP_DIR/uploads.tar.gz" \
+  "$BACKUP_DIR/task-files.tar.gz"

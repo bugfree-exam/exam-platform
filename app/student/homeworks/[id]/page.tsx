@@ -144,9 +144,11 @@ export default async function StudentHomeworkPage({
     notFound();
   }
 
-  const tasks = homework.tasks
-    .filter((homeworkTask) => !homeworkTask.task.isArchived)
-    .map((homeworkTask) => ({
+  /*
+   * Архивация убирает задачу из банка и новых ДЗ, но не должна менять уже
+   * выданную работу или её максимальный балл.
+   */
+  const tasks = homework.tasks.map((homeworkTask) => ({
       id: homeworkTask.task.id,
       egeNumber: homeworkTask.task.egeNumber,
       title: homeworkTask.task.title,
@@ -518,6 +520,7 @@ export default async function StudentHomeworkPage({
               <HomeworkSolveForm
                 homeworkId={homework.id}
                 tasks={tasks}
+                readOnly={isArchived}
                 previousAttempt={
                   previousAttempt
                     ? {

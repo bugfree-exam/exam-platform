@@ -8,9 +8,17 @@ const AUTH_API_ROUTES = [
   "/api/auth/login",
   "/api/auth/logout",
 ];
+const PUBLIC_PAGE_PREFIXES = ["/practice"];
+const PUBLIC_API_PREFIXES = ["/api/public"];
 
 function isAuthApiRoute(pathname: string) {
-  return AUTH_API_ROUTES.some((route) => pathname.startsWith(route));
+  return AUTH_API_ROUTES.some((route) =>
+    matchesRoutePrefix(pathname, route)
+  );
+}
+
+function matchesRoutePrefix(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
 }
 
 function redirectToLogin(request: NextRequest) {
@@ -24,7 +32,7 @@ function redirectByRole(request: NextRequest, role: "TEACHER" | "STUDENT") {
   return NextResponse.redirect(url);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Публичный технический маршрут для Docker и nginx
@@ -33,6 +41,17 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAuthApiRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (
+    PUBLIC_PAGE_PREFIXES.some((route) =>
+      matchesRoutePrefix(pathname, route)
+    ) ||
+    PUBLIC_API_PREFIXES.some((route) =>
+      matchesRoutePrefix(pathname, route)
+    )
+  ) {
     return NextResponse.next();
   }
 
@@ -48,11 +67,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (AUTH_ROUTES.includes(pathname)) {
-    if (!user) {
-      return NextResponse.next();
-    }
-
-    return redirectByRole(request, user.role);
+    /*
+     * Проверка JWT в middleware оптимистическая и не видит актуальный
+     * sessionVersion из базы. Страницу входа всегда оставляем доступной,
+     * чтобы отозванная сессия не создавала цикл редиректов.
+     */
+    return NextResponse.next();
   }
 
   if (pathname.startsWith("/teacher")) {

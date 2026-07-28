@@ -27,6 +27,7 @@ type TaskFormInitialData = {
   videoUrl: string;
   source: string;
   difficulty: number | null;
+  isPublic: boolean;
   attachments: TaskAttachmentItem[];
 };
 
@@ -73,6 +74,7 @@ const DEFAULT_DATA: TaskFormInitialData = {
   videoUrl: "",
   source: "",
   difficulty: null,
+  isPublic: true,
   attachments: [],
 };
 
@@ -170,6 +172,7 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
   const [videoUrl, setVideoUrl] = useState(data.videoUrl);
   const [source, setSource] = useState(data.source);
   const [difficulty, setDifficulty] = useState<number | null>(data.difficulty);
+  const [isPublic, setIsPublic] = useState(data.isPublic);
 
   const [attachments, setAttachments] = useState<TaskAttachmentItem[]>(
     data.attachments
@@ -316,6 +319,7 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
           videoUrl,
           source,
           difficulty,
+          isPublic,
         }),
       });
 
@@ -535,6 +539,24 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
           />
         </div>
       </div>
+
+      <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-4">
+        <input
+          type="checkbox"
+          checked={isPublic}
+          onChange={(event) => setIsPublic(event.target.checked)}
+          className="mt-1 h-4 w-4"
+        />
+        <span>
+          <span className="block text-sm font-bold text-slate-900">
+            Показывать в открытом банке
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-slate-600">
+            Условие и файлы будут доступны без регистрации. Правильный ответ
+            останется на сервере и появится только после проверки.
+          </span>
+        </span>
+      </label>
 
       <div className="flex items-center gap-3">
         <button

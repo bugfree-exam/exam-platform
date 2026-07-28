@@ -22,6 +22,7 @@ const taskSchema = z.object({
   videoUrl: z.string().optional().nullable(),
   source: z.string().optional().nullable(),
   difficulty: z.number().int().min(1).max(5).optional().nullable(),
+  isPublic: z.boolean().default(true),
 });
 
 export async function GET(request: Request) {
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
         videoUrl: parsed.data.videoUrl?.trim() || null,
         source: parsed.data.source?.trim() || null,
         difficulty: parsed.data.difficulty ?? null,
+        isPublic: parsed.data.isPublic,
       },
     });
 

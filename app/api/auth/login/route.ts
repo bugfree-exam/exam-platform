@@ -9,6 +9,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSessionToken } from "@/lib/session";
 import {
+  consumeRateLimit,
+  getRequestClientKey,
+} from "@/lib/rateLimit";
+import {
   getSessionCookieOptions,
   SESSION_COOKIE_NAME,
 } from "@/lib/sessionCookie";
@@ -37,6 +41,26 @@ export async function POST(request: Request) {
     }
 
     const email = parsed.data.email.trim().toLowerCase();
+    const rateLimit = consumeRateLimit({
+      key: `login:${getRequestClientKey(request)}:${email}`,
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          message:
+            "Слишком много попыток входа. Попробуйте немного позже.",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: {
@@ -49,6 +73,7 @@ export async function POST(request: Request) {
         role: true,
         passwordHash: true,
         studentStatus: true,
+        sessionVersion: true,
       },
     });
 
@@ -118,12 +143,18 @@ export async function POST(request: Request) {
       email: user.email,
       name: user.name,
       role: user.role,
+      sessionVersion: user.sessionVersion,
     };
 
     const token = await createSessionToken(sessionUser);
 
     const response = NextResponse.json({
-      user: sessionUser,
+      user: {
+        id: sessionUser.id,
+        email: sessionUser.email,
+        name: sessionUser.name,
+        role: sessionUser.role,
+      },
     });
 
     response.cookies.set(

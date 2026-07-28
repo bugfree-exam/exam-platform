@@ -8,6 +8,7 @@ type TaskItem = {
   egeNumber: number;
   title: string;
   difficulty: number | null;
+  isArchived?: boolean;
 };
 
 type StudentItem = {
@@ -58,6 +59,8 @@ export function HomeworkForm({
   const [egeNumberFilter, setEgeNumberFilter] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const tasksAreLocked =
+    mode === "edit" && (initialData?.attemptsCount ?? 0) > 0;
 
   const taskById = useMemo(() => {
     return new Map(tasks.map((task) => [task.id, task]));
@@ -97,6 +100,10 @@ export function HomeworkForm({
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      if (task.isArchived) {
+        return false;
+      }
+
       const matchesSearch =
         !taskSearch.trim() ||
         task.title.toLowerCase().includes(taskSearch.trim().toLowerCase());
@@ -109,6 +116,8 @@ export function HomeworkForm({
   }, [tasks, taskSearch, egeNumberFilter]);
 
   function toggleTask(taskId: string) {
+    if (tasksAreLocked) return;
+
     setSelectedTaskIds((current) =>
       current.includes(taskId)
         ? current.filter((id) => id !== taskId)
@@ -117,10 +126,14 @@ export function HomeworkForm({
   }
 
   function removeTask(taskId: string) {
+    if (tasksAreLocked) return;
+
     setSelectedTaskIds((current) => current.filter((id) => id !== taskId));
   }
 
   function moveTask(taskId: string, direction: "up" | "down") {
+    if (tasksAreLocked) return;
+
     setSelectedTaskIds((current) => {
       const index = current.indexOf(taskId);
 
@@ -158,6 +171,8 @@ export function HomeworkForm({
   }
 
   function selectAllFilteredTasks() {
+    if (tasksAreLocked) return;
+
     setSelectedTaskIds((current) => {
       const next = [...current];
 
@@ -172,6 +187,8 @@ export function HomeworkForm({
   }
 
   function clearSelectedTasks() {
+    if (tasksAreLocked) return;
+
     setSelectedTaskIds([]);
   }
 
@@ -275,9 +292,9 @@ export function HomeworkForm({
           <div className="font-bold">В этом ДЗ уже есть отправленные решения</div>
           <div className="mt-1">
             Попыток: {initialData.attemptsCount}. Менять название, описание и
-            дедлайн безопасно. Состав задач тоже можно изменить, но история
-            старых попыток останется как была. Учеников, которые уже сдавали
-            это ДЗ, убрать нельзя.
+            дедлайн безопасно. Состав и порядок задач зафиксированы, чтобы
+            старые результаты оставались корректными. Учеников, которые уже
+            сдавали это ДЗ, убрать нельзя.
           </div>
         </div>
       ) : null}
@@ -360,7 +377,8 @@ export function HomeworkForm({
             <button
               type="button"
               onClick={selectAllFilteredTasks}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              disabled={tasksAreLocked}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Выбрать найденные
             </button>
@@ -390,6 +408,7 @@ export function HomeworkForm({
                       checked={isSelected}
                       onChange={() => toggleTask(task.id)}
                       type="checkbox"
+                      disabled={tasksAreLocked}
                       className="mt-1"
                     />
 
@@ -433,7 +452,8 @@ export function HomeworkForm({
             <button
               type="button"
               onClick={clearSelectedTasks}
-              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+              disabled={tasksAreLocked}
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Очистить задачи
             </button>
@@ -467,6 +487,12 @@ export function HomeworkForm({
                           Сложность {task.difficulty}/5
                         </span>
                       ) : null}
+
+                      {task.isArchived ? (
+                        <span className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                          Задача в архиве
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="mt-2 font-semibold text-slate-950">
@@ -478,7 +504,7 @@ export function HomeworkForm({
                     <button
                       type="button"
                       onClick={() => moveTask(task.id, "up")}
-                      disabled={index === 0}
+                      disabled={tasksAreLocked || index === 0}
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ↑
@@ -487,7 +513,9 @@ export function HomeworkForm({
                     <button
                       type="button"
                       onClick={() => moveTask(task.id, "down")}
-                      disabled={index === selectedTasks.length - 1}
+                      disabled={
+                        tasksAreLocked || index === selectedTasks.length - 1
+                      }
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ↓
@@ -496,7 +524,8 @@ export function HomeworkForm({
                     <button
                       type="button"
                       onClick={() => removeTask(task.id)}
-                      className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                      disabled={tasksAreLocked}
+                      className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Убрать
                     </button>

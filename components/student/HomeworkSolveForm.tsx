@@ -72,6 +72,7 @@ type HomeworkSolveFormProps = {
   homeworkId: string;
   tasks: StudentTask[];
   previousAttempt: PreviousAttempt;
+  readOnly?: boolean;
 };
 
 function getAnswerPlaceholder(answerType: StudentTask["answerType"]) {
@@ -428,6 +429,7 @@ export function HomeworkSolveForm({
   homeworkId,
   tasks,
   previousAttempt,
+  readOnly = false,
 }: HomeworkSolveFormProps) {
   const initialAnswers = useMemo(() => {
     const result: Record<string, string> = {};
@@ -497,6 +499,12 @@ export function HomeworkSolveForm({
         </div>
       ) : null}
 
+      {readOnly ? (
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
+          Эта работа находится в архиве. Условия и последний результат доступны
+          для просмотра, но отправить новую попытку уже нельзя.
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-slate-950">
@@ -619,6 +627,7 @@ export function HomeworkSolveForm({
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 }

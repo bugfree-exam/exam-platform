@@ -58,6 +58,7 @@ export default async function EditHomeworkPage({
                 id: true,
                 name: true,
                 email: true,
+                studentStatus: true,
               },
             },
           },
@@ -82,6 +83,7 @@ export default async function EditHomeworkPage({
         egeNumber: true,
         title: true,
         difficulty: true,
+        isArchived: true,
       },
       orderBy: [{ egeNumber: "asc" }, { createdAt: "desc" }],
     }),
@@ -94,6 +96,7 @@ export default async function EditHomeworkPage({
         id: true,
         name: true,
         email: true,
+        studentStatus: true,
       },
       orderBy: {
         name: "asc",
@@ -105,16 +108,13 @@ export default async function EditHomeworkPage({
     notFound();
   }
 
-  const activeHomeworkTasks = homework.tasks.filter(
-    (homeworkTask) => !homeworkTask.task.isArchived
-  );
-
-  const extraTasksFromHomework = activeHomeworkTasks
+  const extraTasksFromHomework = homework.tasks
     .map((homeworkTask) => ({
       id: homeworkTask.task.id,
       egeNumber: homeworkTask.task.egeNumber,
       title: homeworkTask.task.title,
       difficulty: homeworkTask.task.difficulty,
+      isArchived: homeworkTask.task.isArchived,
     }))
     .filter((taskFromHomework) =>
       tasks.every((task) => task.id !== taskFromHomework.id)
@@ -159,7 +159,7 @@ export default async function EditHomeworkPage({
             title: homework.title,
             description: homework.description ?? "",
             deadline: formatDateTimeLocal(homework.deadline),
-            taskIds: activeHomeworkTasks.map(
+            taskIds: homework.tasks.map(
               (homeworkTask) => homeworkTask.taskId
             ),
             studentIds: homework.assignments.map(

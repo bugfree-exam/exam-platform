@@ -1,12 +1,13 @@
-import { HomeworkStatus } from "@prisma/client";
+import {
+  HomeworkStatus,
+  StudentAccountStatus,
+  UserRole,
+} from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { prisma } from "@/lib/prisma";
-
-import { UserRole } from "@prisma/client";
-
 import { requireApiRole } from "@/lib/access";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,28 @@ type RouteContext = {
     id: string;
   }>;
 };
+
+function parseDeadline(value: string | null | undefined) {
+  if (!value) {
+    return {
+      ok: true as const,
+      value: null,
+    };
+  }
+
+  const deadline = new Date(value);
+
+  if (Number.isNaN(deadline.getTime())) {
+    return {
+      ok: false as const,
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: deadline,
+  };
+}
 
 export async function GET(_request: Request, context: RouteContext) {
   const auth = await requireApiRole(UserRole.TEACHER);
@@ -65,6 +88,7 @@ export async function GET(_request: Request, context: RouteContext) {
               id: true,
               name: true,
               email: true,
+              studentStatus: true,
             },
           },
         },
@@ -101,7 +125,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const body = await request.json();
+    const body: unknown = await request.json();
     const parsed = updateHomeworkSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -156,26 +180,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
     if (tasks.length !== uniqueTaskIds.length) {
       return NextResponse.json(
-        { message: "Некоторые задачи не найдены или удалены" },
-        { status: 400 }
-      );
-    }
-
-    const students = await prisma.user.findMany({
-      where: {
-        id: {
-          in: uniqueStudentIds,
-        },
-        role: "STUDENT",
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (students.length !== uniqueStudentIds.length) {
-      return NextResponse.json(
-        { message: "Некоторые ученики не найдены" },
+        { message: "Некоторые задачи не найдены или находятся в архиве" },
         { status: 400 }
       );
     }
@@ -183,6 +188,44 @@ export async function PUT(request: Request, context: RouteContext) {
     const currentStudentIds = homework.assignments.map(
       (assignment) => assignment.studentId
     );
+
+    const requestedStudents = await prisma.user.findMany({
+      where: {
+        id: {
+          in: uniqueStudentIds,
+        },
+        role: UserRole.STUDENT,
+      },
+      select: {
+        id: true,
+        studentStatus: true,
+      },
+    });
+
+    if (requestedStudents.length !== uniqueStudentIds.length) {
+      return NextResponse.json(
+        { message: "Некоторые ученики не найдены" },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * Уже назначенного архивного ученика разрешаем оставить в ДЗ,
+     * чтобы обычное редактирование не разрушало историю.
+     * Но добавить архивного ученика в новое для него ДЗ нельзя.
+     */
+    const newlyAddedArchivedStudent = requestedStudents.some(
+      (student) =>
+        student.studentStatus === StudentAccountStatus.ARCHIVED &&
+        !currentStudentIds.includes(student.id)
+    );
+
+    if (newlyAddedArchivedStudent) {
+      return NextResponse.json(
+        { message: "Нельзя назначить ДЗ ученику из архива" },
+        { status: 400 }
+      );
+    }
 
     const studentsToAdd = uniqueStudentIds.filter(
       (studentId) => !currentStudentIds.includes(studentId)
@@ -210,11 +253,9 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const deadline = parsed.data.deadline
-      ? new Date(parsed.data.deadline)
-      : null;
+    const parsedDeadline = parseDeadline(parsed.data.deadline);
 
-    if (parsed.data.deadline && Number.isNaN(deadline?.getTime())) {
+    if (!parsedDeadline.ok) {
       return NextResponse.json(
         { message: "Некорректный дедлайн" },
         { status: 400 }
@@ -228,23 +269,25 @@ export async function PUT(request: Request, context: RouteContext) {
         },
       });
 
-      await tx.homeworkAssignment.deleteMany({
-        where: {
-          homeworkId: id,
-          studentId: {
-            in: studentsToRemove,
+      if (studentsToRemove.length > 0) {
+        await tx.homeworkAssignment.deleteMany({
+          where: {
+            homeworkId: id,
+            studentId: {
+              in: studentsToRemove,
+            },
           },
-        },
-      });
+        });
+      }
 
-      const result = await tx.homework.update({
+      return tx.homework.update({
         where: {
           id,
         },
         data: {
           title: parsed.data.title.trim(),
           description: parsed.data.description?.trim() || null,
-          deadline,
+          deadline: parsedDeadline.value,
           tasks: {
             create: uniqueTaskIds.map((taskId, index) => ({
               taskId,
@@ -258,8 +301,6 @@ export async function PUT(request: Request, context: RouteContext) {
           },
         },
       });
-
-      return result;
     });
 
     return NextResponse.json({ homework: updatedHomework });
@@ -283,7 +324,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const body = await request.json();
+    const body: unknown = await request.json();
     const parsed = updateHomeworkStatusSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -306,6 +347,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     const homework = await prisma.homework.findUnique({
       where: {
         id,
+      },
+      select: {
+        id: true,
       },
     });
 

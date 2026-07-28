@@ -78,7 +78,7 @@ model User {
   frozenAt           DateTime?
   archivedAt         DateTime?
 
-  publishedAt DateTime?
+  @@index([role, studentStatus])
 }
 
 model Task {
@@ -225,6 +225,7 @@ model Webinar {
 
   @@index([status])
   @@index([eventDate])
+  @@index([publishedAt])
 }
 
 model WebinarMaterial {

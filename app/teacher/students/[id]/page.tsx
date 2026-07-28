@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { StudentAccessCard } from "@/components/teacher/StudentAccessCard";
+import { StudentAccountActions } from "@/components/teacher/StudentAccountActions";
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { requireTeacherPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
@@ -232,9 +233,28 @@ export default async function TeacherStudentPage({
                 </div>
 
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
-                    Карточка ученика
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">
+                      Карточка ученика
+                    </div>
+
+                    <span
+                      className={
+                        student.studentStatus === "ARCHIVED"
+                          ? "rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                          : student.studentStatus === "FROZEN"
+                            ? "rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700"
+                            : "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700"
+                      }
+                    >
+                      {student.studentStatus === "ARCHIVED"
+                        ? "В архиве"
+                        : student.studentStatus === "FROZEN"
+                          ? "Заморожен"
+                          : "Активен"}
+                    </span>
                   </div>
+
                   <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
                     {student.name}
                   </h1>
@@ -366,6 +386,14 @@ export default async function TeacherStudentPage({
             )}
           </article>
         </section>
+
+        <StudentAccountActions
+          studentId={student.id}
+          studentName={student.name}
+          studentEmail={student.email}
+          studentStatus={student.studentStatus}
+          archivedAt={student.archivedAt?.toISOString() ?? null}
+        />
 
         <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div>

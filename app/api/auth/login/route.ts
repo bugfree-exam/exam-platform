@@ -1,3 +1,7 @@
+import {
+  StudentAccountStatus,
+  UserRole,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -44,6 +48,7 @@ export async function POST(request: Request) {
         name: true,
         role: true,
         passwordHash: true,
+        studentStatus: true,
       },
     });
 
@@ -78,6 +83,36 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * Статус проверяем после успешной проверки пароля.
+     * Так посторонний человек не сможет выяснить, существует ли аккаунт.
+     */
+    if (
+      user.role === UserRole.STUDENT &&
+      user.studentStatus === StudentAccountStatus.ARCHIVED
+    ) {
+      return NextResponse.json(
+        {
+          message:
+            "Доступ к аккаунту приостановлен. Обратитесь к преподавателю.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    if (user.role === UserRole.STUDENT) {
+      await prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          lastActivityAt: new Date(),
+        },
+      });
+    }
+
     const sessionUser = {
       id: user.id,
       email: user.email,
@@ -91,13 +126,6 @@ export async function POST(request: Request) {
       user: sessionUser,
     });
 
-    /*
-     * Все параметры cookie находятся в одном месте:
-     * lib/sessionCookie.ts.
-     *
-     * Там задаются httpOnly, secure, sameSite, path,
-     * maxAge и priority.
-     */
     response.cookies.set(
       SESSION_COOKIE_NAME,
       token,

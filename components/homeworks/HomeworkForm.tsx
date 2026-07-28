@@ -14,6 +14,7 @@ type StudentItem = {
   id: string;
   name: string;
   email: string;
+  studentStatus?: "ACTIVE" | "FROZEN" | "ARCHIVED";
 };
 
 type HomeworkFormInitialData = {
@@ -68,6 +69,32 @@ export function HomeworkForm({
       .filter((task): task is TaskItem => Boolean(task));
   }, [selectedTaskIds, taskById]);
 
+  const availableStudents = useMemo(
+    () =>
+      students.filter(
+        (student) => student.studentStatus !== "ARCHIVED"
+      ),
+    [students]
+  );
+
+  const selectedArchivedStudents = useMemo(
+    () =>
+      students.filter(
+        (student) =>
+          student.studentStatus === "ARCHIVED" &&
+          selectedStudentIds.includes(student.id)
+      ),
+    [students, selectedStudentIds]
+  );
+
+  const frozenStudentsCount = useMemo(
+    () =>
+      availableStudents.filter(
+        (student) => student.studentStatus === "FROZEN"
+      ).length,
+    [availableStudents]
+  );
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesSearch =
@@ -117,6 +144,12 @@ export function HomeworkForm({
   }
 
   function toggleStudent(studentId: string) {
+    const student = students.find((item) => item.id === studentId);
+
+    if (student?.studentStatus === "ARCHIVED") {
+      return;
+    }
+
     setSelectedStudentIds((current) =>
       current.includes(studentId)
         ? current.filter((id) => id !== studentId)
@@ -143,11 +176,32 @@ export function HomeworkForm({
   }
 
   function selectAllStudents() {
-    setSelectedStudentIds(students.map((student) => student.id));
+    setSelectedStudentIds((current) => {
+      const archivedSelectedIds = current.filter((studentId) =>
+        selectedArchivedStudents.some(
+          (student) => student.id === studentId
+        )
+      );
+
+      return [
+        ...archivedSelectedIds,
+        ...availableStudents.map((student) => student.id),
+      ];
+    });
   }
 
   function clearSelectedStudents() {
-    setSelectedStudentIds([]);
+    setSelectedStudentIds((current) =>
+      current.filter((studentId) => {
+        const student = students.find((item) => item.id === studentId);
+
+        /*
+         * Архивные или отсутствующие в текущей выборке ученики могут быть
+         * частью старого ДЗ. Не снимаем такие назначения молча.
+         */
+        return !student || student.studentStatus === "ARCHIVED";
+      })
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -482,14 +536,22 @@ export function HomeworkForm({
           </div>
         </div>
 
+        {frozenStudentsCount > 0 ? (
+          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-800">
+            Замороженные ученики остаются доступны для выдачи ДЗ. Заморозка
+            ограничивает только доступ к новым вебинарам.
+          </div>
+        ) : null}
+
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          {students.length === 0 ? (
+          {availableStudents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 md:col-span-2">
-              Ученики не найдены
+              Активные и замороженные ученики не найдены
             </div>
           ) : (
-            students.map((student) => {
+            availableStudents.map((student) => {
               const isSelected = selectedStudentIds.includes(student.id);
+              const isFrozen = student.studentStatus === "FROZEN";
 
               return (
                 <label
@@ -508,11 +570,20 @@ export function HomeworkForm({
                       className="mt-1"
                     />
 
-                    <div>
-                      <div className="font-semibold text-slate-950">
-                        {student.name}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-semibold text-slate-950">
+                          {student.name}
+                        </div>
+
+                        {isFrozen ? (
+                          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                            Заморожен
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="mt-1 text-sm text-slate-500">
+
+                      <div className="mt-1 truncate text-sm text-slate-500">
                         {student.email}
                       </div>
                     </div>
@@ -522,6 +593,29 @@ export function HomeworkForm({
             })
           )}
         </div>
+
+        {selectedArchivedStudents.length > 0 ? (
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="text-sm font-semibold text-slate-700">
+              Уже назначенные архивные ученики
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Они сохранены в этом ДЗ для истории и не будут добавляться в
+              новые работы.
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedArchivedStudents.map((student) => (
+                <span
+                  key={student.id}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-600"
+                >
+                  {student.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <div className="sticky bottom-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-lg backdrop-blur">

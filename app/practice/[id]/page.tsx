@@ -78,6 +78,25 @@ export default async function PracticeTaskPage({
     notFound();
   }
 
+  const tasksOfSameNumber = await prisma.task.findMany({
+    where: {
+      egeNumber: task.egeNumber,
+      isPublic: true,
+      isArchived: false,
+    },
+    select: {
+      id: true,
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  const currentIndex = tasksOfSameNumber.findIndex(
+    (item) => item.id === task.id
+  );
+  const nextTaskId =
+    tasksOfSameNumber.length > 1
+      ? tasksOfSameNumber[(currentIndex + 1) % tasksOfSameNumber.length].id
+      : null;
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f4f7f8] px-4 py-5 text-slate-950 sm:px-6 sm:py-8">
       <div
@@ -92,10 +111,10 @@ export default async function PracticeTaskPage({
       <div className="relative mx-auto max-w-5xl">
         <nav className="flex items-center justify-between gap-4 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
           <Link
-            href="/practice"
+            href={`/practice?egeNumber=${task.egeNumber}`}
             className="text-sm font-bold text-slate-700 transition hover:text-cyan-700"
           >
-            ← Все задания
+            ← Все задания №{task.egeNumber}
           </Link>
           <Link
             href="/login"
@@ -160,8 +179,11 @@ export default async function PracticeTaskPage({
 
         <div className="mt-5">
           <PublicTaskSolver
+            key={task.id}
             taskId={task.id}
+            egeNumber={task.egeNumber}
             answerType={task.answerType}
+            nextTaskId={nextTaskId}
           />
         </div>
       </div>

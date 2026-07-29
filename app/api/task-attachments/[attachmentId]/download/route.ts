@@ -1,7 +1,4 @@
-import {
-  HomeworkStatus,
-  UserRole,
-} from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/access";
@@ -63,23 +60,8 @@ export async function GET(
         await prisma.taskAttachment.findFirst({
           where: {
             id: attachmentId,
-
             task: {
-              homeworkTasks: {
-                some: {
-                  homework: {
-                    status: {
-                      not: HomeworkStatus.DRAFT,
-                    },
-
-                    assignments: {
-                      some: {
-                        studentId: auth.user.id,
-                      },
-                    },
-                  },
-                },
-              },
+              isArchived: false,
             },
           },
           select: attachmentSelect,

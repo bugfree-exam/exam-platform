@@ -73,35 +73,93 @@ export default async function StudentResultsPage() {
     redirect("/login");
   }
 
-  const attempts = await prisma.attempt.findMany({
-    where: {
-      studentId: user.id,
-      status: "SUBMITTED",
-    },
-    include: {
-      homework: {
-        select: {
-          id: true,
-          title: true,
-        },
+  const [homeworkAttempts, practiceAttempts] = await Promise.all([
+    prisma.attempt.findMany({
+      where: {
+        studentId: user.id,
+        status: "SUBMITTED",
       },
-      answers: {
-        include: {
-          task: {
-            select: {
-              id: true,
-              egeNumber: true,
-              title: true,
-              correctAnswer: true,
+      include: {
+        homework: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        answers: {
+          include: {
+            task: {
+              select: {
+                id: true,
+                egeNumber: true,
+                title: true,
+                correctAnswer: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: {
-      submittedAt: "desc",
-    },
-  });
+      orderBy: {
+        submittedAt: "desc",
+      },
+    }),
+    prisma.practiceAttempt.findMany({
+      where: {
+        studentId: user.id,
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            egeNumber: true,
+            title: true,
+            correctAnswer: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+  ]);
+
+  const attempts = [
+    ...homeworkAttempts.map((attempt) => ({
+      id: attempt.id,
+      source: "HOMEWORK" as const,
+      title: attempt.homework.title,
+      href: `/student/homeworks/${attempt.homeworkId}`,
+      score: attempt.score,
+      maxScore: attempt.maxScore,
+      percent: attempt.percent,
+      submittedAt: attempt.submittedAt,
+      answers: attempt.answers,
+    })),
+    ...practiceAttempts.map((attempt) => ({
+      id: attempt.id,
+      source: "PRACTICE" as const,
+      title: `Тренажёр · задание №${attempt.task.egeNumber}`,
+      href: `/student/trainer/${attempt.task.egeNumber}?task=${attempt.taskId}`,
+      score: attempt.isCorrect ? 1 : 0,
+      maxScore: 1,
+      percent: attempt.isCorrect ? 100 : 0,
+      submittedAt: attempt.createdAt,
+      answers: [
+        {
+          id: `practice-${attempt.id}`,
+          taskId: attempt.taskId,
+          rawAnswer: attempt.rawAnswer,
+          normalizedAnswer: attempt.normalizedAnswer,
+          isCorrect: attempt.isCorrect,
+          task: attempt.task,
+        },
+      ],
+    })),
+  ].sort(
+    (first, second) =>
+      (second.submittedAt?.getTime() ?? 0) -
+      (first.submittedAt?.getTime() ?? 0)
+  );
 
   const totalAttempts = attempts.length;
 
@@ -264,8 +322,9 @@ export default async function StudentResultsPage() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Здесь собрана вся история решений: общий результат, точность по
-                номерам ЕГЭ и подробный разбор каждой отправленной попытки.
+                Здесь собрана вся история решений из домашних заданий и
+                тренажёра: общий результат, точность по номерам ЕГЭ и подробный
+                разбор каждой попытки.
               </p>
             </div>
 
@@ -315,19 +374,19 @@ export default async function StudentResultsPage() {
               </div>
 
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-                Отправь первое домашнее задание
+                Реши первое задание
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                После проверки здесь появятся результат, статистика по номерам
-                ЕГЭ и подробный разбор ответов.
+                После проверки ДЗ или задания в тренажёре здесь появятся
+                результат, статистика по номерам ЕГЭ и подробный разбор.
               </p>
 
               <Link
-                href="/student/homeworks"
+                href="/student/trainer"
                 className="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-cyan-700"
               >
-                Перейти к домашним заданиям →
+                Открыть тренажёр →
               </Link>
             </div>
           </section>
@@ -351,7 +410,7 @@ export default async function StudentResultsPage() {
                 </div>
 
                 <p className="mt-3 text-sm text-slate-500">
-                  Отправленных домашних заданий
+                  ДЗ и отдельных заданий тренажёра
                 </p>
               </article>
 
@@ -394,7 +453,7 @@ export default async function StudentResultsPage() {
                 </div>
 
                 <p className="mt-3 truncate text-sm text-slate-500">
-                  {bestAttempt?.homework.title ?? "Пока нет результата"}
+                  {bestAttempt?.title ?? "Пока нет результата"}
                 </p>
               </article>
 
@@ -415,7 +474,7 @@ export default async function StudentResultsPage() {
                 </div>
 
                 <p className="mt-3 truncate text-sm text-slate-500">
-                  {latestAttempt?.homework.title ?? "Пока нет результата"}
+                  {latestAttempt?.title ?? "Пока нет результата"}
                 </p>
               </article>
             </section>
@@ -566,7 +625,7 @@ export default async function StudentResultsPage() {
                   </p>
 
                   <Link
-                    href="/student/homeworks"
+                    href="/student/trainer"
                     className="mt-4 inline-flex text-sm font-bold text-cyan-700 transition hover:text-cyan-900"
                   >
                     Продолжить практику →
@@ -619,10 +678,10 @@ export default async function StudentResultsPage() {
 
                             <div className="min-w-0">
                               <Link
-                                href={`/student/homeworks/${attempt.homeworkId}`}
+                                href={attempt.href}
                                 className="line-clamp-2 text-lg font-black text-slate-950 transition hover:text-cyan-700"
                               >
-                                {attempt.homework.title}
+                                {attempt.title}
                               </Link>
 
                               <div className="mt-1 text-sm text-slate-500">
@@ -630,6 +689,17 @@ export default async function StudentResultsPage() {
                               </div>
 
                               <div className="mt-3 flex flex-wrap gap-2">
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                    attempt.source === "PRACTICE"
+                                      ? "bg-cyan-50 text-cyan-700"
+                                      : "bg-violet-50 text-violet-700"
+                                  }`}
+                                >
+                                  {attempt.source === "PRACTICE"
+                                    ? "Тренажёр"
+                                    : "Домашнее задание"}
+                                </span>
                                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                                   {correctAnswers} верно
                                 </span>
@@ -673,10 +743,12 @@ export default async function StudentResultsPage() {
                           </div>
 
                           <Link
-                            href={`/student/homeworks/${attempt.homeworkId}`}
+                            href={attempt.href}
                             className="text-xs font-bold text-cyan-700 hover:text-cyan-900"
                           >
-                            Открыть домашнее задание →
+                            {attempt.source === "PRACTICE"
+                              ? "Открыть в тренажёре →"
+                              : "Открыть домашнее задание →"}
                           </Link>
                         </div>
 

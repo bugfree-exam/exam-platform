@@ -10,11 +10,18 @@ type AnswerType =
   | "PAIR_LIST_ORDERED"
   | "PAIR_LIST_UNORDERED";
 
-type CheckResult = {
+type AttemptResult = {
+  id: string;
+  createdAt: string;
   isCorrect: boolean;
   normalizedAnswer: unknown;
   correctAnswer: unknown;
   explanationHtml: string | null;
+};
+
+type AttemptResponse = {
+  attempt: AttemptResult;
+  nextTaskId: string | null;
 };
 
 function formatAnswer(value: unknown) {
@@ -34,20 +41,19 @@ function getPlaceholder(answerType: AnswerType) {
   return "Введите ответ";
 }
 
-export function PublicTaskSolver({
+export function TrainerTaskSolver({
   taskId,
   egeNumber,
   answerType,
-  nextTaskId,
 }: {
   taskId: string;
   egeNumber: number;
   answerType: AnswerType;
-  nextTaskId: string | null;
 }) {
   const router = useRouter();
   const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<CheckResult | null>(null);
+  const [result, setResult] = useState<AttemptResult | null>(null);
+  const [nextTaskId, setNextTaskId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isChecking, setIsChecking] = useState(false);
 
@@ -55,26 +61,31 @@ export function PublicTaskSolver({
     event.preventDefault();
     setMessage("");
     setResult(null);
+    setNextTaskId(null);
     setIsChecking(true);
 
     try {
-      const response = await fetch(`/api/public/tasks/${taskId}/check`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ answer }),
-      });
+      const response = await fetch(
+        `/api/student/trainer/tasks/${taskId}/attempt`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ answer }),
+        }
+      );
       const data = (await response.json().catch(() => ({}))) as
-        | (CheckResult & { message?: string })
+        | (AttemptResponse & { message?: string })
         | { message?: string };
 
-      if (!response.ok || !("isCorrect" in data)) {
+      if (!response.ok || !("attempt" in data)) {
         setMessage(data.message || "Не удалось проверить ответ");
         return;
       }
 
-      setResult(data);
+      setResult(data.attempt);
+      setNextTaskId(data.nextTaskId);
     } catch {
       setMessage("Не удалось подключиться к серверу");
     } finally {
@@ -82,14 +93,23 @@ export function PublicTaskSolver({
     }
   }
 
+  function openNextTask() {
+    if (!nextTaskId) return;
+
+    router.push(`/student/trainer/${egeNumber}?task=${nextTaskId}`);
+  }
+
   return (
     <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
       <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">
-        answer.check
+        trainer.answer
       </div>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-        Ваш ответ
+        Введите ответ
       </h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        Результат этой проверки сразу попадёт в раздел «Результаты и ошибки».
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-5">
         {answerType.startsWith("PAIR_LIST") ? (
@@ -98,7 +118,8 @@ export function PublicTaskSolver({
             onChange={(event) => setAnswer(event.target.value)}
             rows={5}
             maxLength={10_000}
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+            disabled={Boolean(result)}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100 disabled:bg-slate-50"
             placeholder={getPlaceholder(answerType)}
           />
         ) : (
@@ -106,18 +127,21 @@ export function PublicTaskSolver({
             value={answer}
             onChange={(event) => setAnswer(event.target.value)}
             maxLength={10_000}
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+            disabled={Boolean(result)}
+            className="w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm outline-none transition focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100 disabled:bg-slate-50"
             placeholder={getPlaceholder(answerType)}
           />
         )}
 
-        <button
-          type="submit"
-          disabled={isChecking}
-          className="mt-3 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isChecking ? "Проверяем..." : "Проверить ответ"}
-        </button>
+        {!result ? (
+          <button
+            type="submit"
+            disabled={isChecking}
+            className="mt-3 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isChecking ? "Проверяем..." : "Проверить ответ"}
+          </button>
+        ) : null}
       </form>
 
       {message ? (
@@ -141,7 +165,7 @@ export function PublicTaskSolver({
                 : "text-lg font-black text-amber-900"
             }
           >
-            {result.isCorrect ? "Верно!" : "Пока неверно"}
+            {result.isCorrect ? "Верно!" : "Есть ошибка"}
           </div>
 
           <div className="mt-3 text-sm text-slate-700">
@@ -163,7 +187,7 @@ export function PublicTaskSolver({
           {nextTaskId ? (
             <button
               type="button"
-              onClick={() => router.push(`/practice/${nextTaskId}`)}
+              onClick={openNextTask}
               className="mt-5 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700"
             >
               Следующее задание №{egeNumber} →

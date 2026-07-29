@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getCurrentUser } from "@/lib/auth";
 
-type SectionIconName = "homeworks" | "results" | "webinars";
+type SectionIconName = "homeworks" | "trainer" | "results" | "webinars";
 
 type StudentSection = {
   href: string;
@@ -29,8 +29,19 @@ const studentSections: StudentSection[] = [
     icon: "homeworks",
   },
   {
-    href: "/student/results",
+    href: "/student/trainer",
     number: "02",
+    route: "/trainer",
+    label: "Самостоятельно",
+    title: "Тренажёр заданий",
+    description:
+      "Выбирайте номер ЕГЭ и решайте подряд все доступные задания этого типа.",
+    status: "ready",
+    icon: "trainer",
+  },
+  {
+    href: "/student/results",
+    number: "03",
     route: "/results",
     label: "Аналитика",
     title: "Результаты и ошибки",
@@ -41,7 +52,7 @@ const studentSections: StudentSection[] = [
   },
   {
     href: "/student/webinars",
-    number: "03",
+    number: "04",
     route: "/webinars",
     label: "Материалы курса",
     title: "Вебинары и конспекты",
@@ -96,6 +107,29 @@ function SectionIcon({ name }: { name: SectionIconName }) {
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (name === "trainer") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="h-6 w-6"
+      >
+        <path
+          d="M8 6.5h8M8 11h8M8 15.5h5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path
+          d="M5.5 3.75h13A1.75 1.75 0 0 1 20.25 5.5v13a1.75 1.75 0 0 1-1.75 1.75h-13a1.75 1.75 0 0 1-1.75-1.75v-13A1.75 1.75 0 0 1 5.5 3.75Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
         />
       </svg>
     );
@@ -258,24 +292,28 @@ export default async function StudentPage() {
                   <ArrowIcon />
                 </Link>
                 <Link
-                  href="/student/webinars"
+                  href="/student/trainer"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10"
                 >
-                  Перейти к материалам
+                  Открыть тренажёр
                 </Link>
               </div>
 
-              <div className="mt-9 grid gap-2 border-t border-white/10 pt-6 font-mono text-[11px] text-slate-400 sm:grid-cols-3 sm:text-xs">
+              <div className="mt-9 grid gap-2 border-t border-white/10 pt-6 font-mono text-[11px] text-slate-400 sm:grid-cols-2 sm:text-xs lg:grid-cols-4">
                 <div>
                   <span className="text-slate-600">01</span>{" "}
                   homework_tracking: <span className="text-emerald-300">enabled</span>
                 </div>
                 <div>
                   <span className="text-slate-600">02</span>{" "}
-                  results: <span className="text-emerald-300">visible</span>
+                  trainer: <span className="text-emerald-300">ready</span>
                 </div>
                 <div>
                   <span className="text-slate-600">03</span>{" "}
+                  results: <span className="text-emerald-300">visible</span>
+                </div>
+                <div>
+                  <span className="text-slate-600">04</span>{" "}
                   materials: <span className="text-emerald-300">available</span>
                 </div>
               </div>
@@ -321,6 +359,7 @@ export default async function StudentPage() {
             <div className="mt-6 space-y-3">
               {[
                 ["Задания", "ready"],
+                ["Тренажёр", "online"],
                 ["Результаты", "tracked"],
                 ["Материалы", "online"],
               ].map(([label, status]) => (

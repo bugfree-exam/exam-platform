@@ -70,6 +70,7 @@ model User {
 
   assignedHomeworks HomeworkAssignment[]
   attempts          Attempt[]
+  practiceAttempts  PracticeAttempt[]
 
   lastActivityAt DateTime?
 
@@ -100,8 +101,9 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  homeworkTasks  HomeworkTask[]
-  attemptAnswers AttemptAnswer[]
+  homeworkTasks    HomeworkTask[]
+  attemptAnswers   AttemptAnswer[]
+  practiceAttempts PracticeAttempt[]
 
   @@index([egeNumber])
   @@index([isPublic, isArchived, egeNumber])
@@ -203,6 +205,25 @@ model AttemptAnswer {
 
   @@unique([attemptId, taskId])
   @@index([attemptId])
+  @@index([taskId])
+}
+
+model PracticeAttempt {
+  id        String @id @default(cuid())
+  studentId String
+  taskId    String
+
+  rawAnswer        Json
+  normalizedAnswer Json?
+  isCorrect        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task    Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+  @@index([studentId, taskId])
   @@index([taskId])
 }
 

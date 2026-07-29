@@ -3,7 +3,12 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import { getCurrentUser } from "@/lib/auth";
 
-type SectionIconName = "homeworks" | "trainer" | "results" | "webinars";
+type SectionIconName =
+  | "homeworks"
+  | "trainer"
+  | "variants"
+  | "results"
+  | "webinars";
 
 type StudentSection = {
   href: string;
@@ -40,8 +45,19 @@ const studentSections: StudentSection[] = [
     icon: "trainer",
   },
   {
-    href: "/student/results",
+    href: "/student/variants",
     number: "03",
+    route: "/variants",
+    label: "Экзаменационный режим",
+    title: "Решать варианты",
+    description:
+      "Полноценные варианты из 27 заданий с таймером, автосохранением и разбором ошибок.",
+    status: "exam-ready",
+    icon: "variants",
+  },
+  {
+    href: "/student/results",
+    number: "04",
     route: "/results",
     label: "Аналитика",
     title: "Результаты и ошибки",
@@ -52,7 +68,7 @@ const studentSections: StudentSection[] = [
   },
   {
     href: "/student/webinars",
-    number: "04",
+    number: "05",
     route: "/webinars",
     label: "Материалы курса",
     title: "Вебинары и конспекты",
@@ -130,6 +146,29 @@ function SectionIcon({ name }: { name: SectionIconName }) {
           d="M5.5 3.75h13A1.75 1.75 0 0 1 20.25 5.5v13a1.75 1.75 0 0 1-1.75 1.75h-13a1.75 1.75 0 0 1-1.75-1.75v-13A1.75 1.75 0 0 1 5.5 3.75Z"
           stroke="currentColor"
           strokeWidth="1.6"
+        />
+      </svg>
+    );
+  }
+
+  if (name === "variants") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="h-6 w-6"
+      >
+        <path
+          d="M7 3.75h10A2.25 2.25 0 0 1 19.25 6v12A2.25 2.25 0 0 1 17 20.25H7A2.25 2.25 0 0 1 4.75 18V6A2.25 2.25 0 0 1 7 3.75Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M8 8h2m3 0h3M8 12h2m3 0h3M8 16h2m3 0h3"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
         />
       </svg>
     );
@@ -297,9 +336,15 @@ export default async function StudentPage() {
                 >
                   Открыть тренажёр
                 </Link>
+                <Link
+                  href="/student/variants"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10"
+                >
+                  Решать варианты
+                </Link>
               </div>
 
-              <div className="mt-9 grid gap-2 border-t border-white/10 pt-6 font-mono text-[11px] text-slate-400 sm:grid-cols-2 sm:text-xs lg:grid-cols-4">
+              <div className="mt-9 grid gap-2 border-t border-white/10 pt-6 font-mono text-[11px] text-slate-400 sm:grid-cols-2 sm:text-xs lg:grid-cols-5">
                 <div>
                   <span className="text-slate-600">01</span>{" "}
                   homework_tracking: <span className="text-emerald-300">enabled</span>
@@ -310,10 +355,14 @@ export default async function StudentPage() {
                 </div>
                 <div>
                   <span className="text-slate-600">03</span>{" "}
-                  results: <span className="text-emerald-300">visible</span>
+                  variants: <span className="text-emerald-300">exam-ready</span>
                 </div>
                 <div>
                   <span className="text-slate-600">04</span>{" "}
+                  results: <span className="text-emerald-300">visible</span>
+                </div>
+                <div>
+                  <span className="text-slate-600">05</span>{" "}
                   materials: <span className="text-emerald-300">available</span>
                 </div>
               </div>
@@ -360,6 +409,7 @@ export default async function StudentPage() {
               {[
                 ["Задания", "ready"],
                 ["Тренажёр", "online"],
+                ["Варианты", "exam-ready"],
                 ["Результаты", "tracked"],
                 ["Материалы", "online"],
               ].map(([label, status]) => (

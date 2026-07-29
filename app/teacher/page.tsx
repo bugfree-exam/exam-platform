@@ -117,6 +117,7 @@ export default async function TeacherPage() {
   const [
     studentGroups,
     activeTasksCount,
+    publishedVariantsCount,
     homeworkGroups,
     webinarGroups,
     weeklyAttempts,
@@ -137,6 +138,11 @@ export default async function TeacherPage() {
     prisma.task.count({
       where: {
         isArchived: false,
+      },
+    }),
+    prisma.examVariant.count({
+      where: {
+        status: "PUBLISHED",
       },
     }),
     prisma.homework.groupBy({
@@ -366,8 +372,16 @@ export default async function TeacherPage() {
       unit: "активных",
     },
     {
-      href: "/teacher/homeworks",
+      href: "/teacher/variants",
       code: "03",
+      title: "Варианты ЕГЭ",
+      description: "Конструктор вариантов и подробные попытки учеников.",
+      value: publishedVariantsCount,
+      unit: "опубликовано",
+    },
+    {
+      href: "/teacher/homeworks",
+      code: "04",
       title: "Домашние задания",
       description: "Создание, редактирование и история всех подборок.",
       value: activeHomeworksCount,
@@ -375,7 +389,7 @@ export default async function TeacherPage() {
     },
     {
       href: "/teacher/homeworks/review",
-      code: "04",
+      code: "05",
       title: "Контроль ДЗ",
       description: "Кто ещё не сдал, просрочки и ученики для внимания.",
       value: allPendingAssignments.length,
@@ -383,7 +397,7 @@ export default async function TeacherPage() {
     },
     {
       href: "/teacher/results",
-      code: "05",
+      code: "06",
       title: "Результаты",
       description: "Последние попытки, ошибки и общая динамика решений.",
       value: weeklyAttemptsCount,
@@ -391,7 +405,7 @@ export default async function TeacherPage() {
     },
     {
       href: "/teacher/webinars",
-      code: "06",
+      code: "07",
       title: "Вебинары",
       description: "Записи, конспекты, материалы и управление публикациями.",
       value: publishedWebinarsCount,

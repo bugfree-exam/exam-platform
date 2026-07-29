@@ -73,7 +73,8 @@ export default async function StudentResultsPage() {
     redirect("/login");
   }
 
-  const [homeworkAttempts, practiceAttempts] = await Promise.all([
+  const [homeworkAttempts, practiceAttempts, variantAttempts] =
+    await Promise.all([
     prisma.attempt.findMany({
       where: {
         studentId: user.id,
@@ -121,6 +122,35 @@ export default async function StudentResultsPage() {
         createdAt: "desc",
       },
     }),
+    prisma.variantAttempt.findMany({
+      where: {
+        studentId: user.id,
+        status: "SUBMITTED",
+      },
+      include: {
+        variant: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        answers: {
+          include: {
+            task: {
+              select: {
+                id: true,
+                egeNumber: true,
+                title: true,
+                correctAnswer: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        submittedAt: "desc",
+      },
+    }),
   ]);
 
   const attempts = [
@@ -154,6 +184,17 @@ export default async function StudentResultsPage() {
           task: attempt.task,
         },
       ],
+    })),
+    ...variantAttempts.map((attempt) => ({
+      id: attempt.id,
+      source: "VARIANT" as const,
+      title: attempt.variant.title,
+      href: `/student/variants/${attempt.variantId}/results/${attempt.id}`,
+      score: attempt.score,
+      maxScore: attempt.maxScore,
+      percent: attempt.percent,
+      submittedAt: attempt.submittedAt,
+      answers: attempt.answers,
     })),
   ].sort(
     (first, second) =>
@@ -322,9 +363,9 @@ export default async function StudentResultsPage() {
               </h1>
 
               <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Здесь собрана вся история решений из домашних заданий и
-                тренажёра: общий результат, точность по номерам ЕГЭ и подробный
-                разбор каждой попытки.
+                Здесь собрана вся история решений из домашних заданий,
+                тренажёра и полноценных вариантов: общий результат, точность по
+                номерам ЕГЭ и подробный разбор каждой попытки.
               </p>
             </div>
 
@@ -378,8 +419,9 @@ export default async function StudentResultsPage() {
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                После проверки ДЗ или задания в тренажёре здесь появятся
-                результат, статистика по номерам ЕГЭ и подробный разбор.
+                После проверки ДЗ, задания в тренажёре или варианта здесь
+                появятся результат, статистика по номерам ЕГЭ и подробный
+                разбор.
               </p>
 
               <Link
@@ -410,7 +452,7 @@ export default async function StudentResultsPage() {
                 </div>
 
                 <p className="mt-3 text-sm text-slate-500">
-                  ДЗ и отдельных заданий тренажёра
+                  ДЗ, тренажёра и вариантов ЕГЭ
                 </p>
               </article>
 
@@ -693,12 +735,16 @@ export default async function StudentResultsPage() {
                                   className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                                     attempt.source === "PRACTICE"
                                       ? "bg-cyan-50 text-cyan-700"
-                                      : "bg-violet-50 text-violet-700"
+                                      : attempt.source === "VARIANT"
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-violet-50 text-violet-700"
                                   }`}
                                 >
                                   {attempt.source === "PRACTICE"
                                     ? "Тренажёр"
-                                    : "Домашнее задание"}
+                                    : attempt.source === "VARIANT"
+                                      ? "Вариант ЕГЭ"
+                                      : "Домашнее задание"}
                                 </span>
                                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                                   {correctAnswers} верно
@@ -748,7 +794,9 @@ export default async function StudentResultsPage() {
                           >
                             {attempt.source === "PRACTICE"
                               ? "Открыть в тренажёре →"
-                              : "Открыть домашнее задание →"}
+                              : attempt.source === "VARIANT"
+                                ? "Открыть разбор варианта →"
+                                : "Открыть домашнее задание →"}
                           </Link>
                         </div>
 

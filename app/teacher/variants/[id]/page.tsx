@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { VariantStatusButton } from "@/components/variants/VariantStatusButton";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -155,7 +156,7 @@ export default async function TeacherVariantPage({
                     <th className="pb-3 font-bold">Дата</th>
                     <th className="pb-3 font-bold">Верно</th>
                     <th className="pb-3 font-bold">Баллы</th>
-                    <th className="pb-3 font-bold">Результат</th>
+                    <th className="pb-3 font-bold">Тестовый балл</th>
                     <th className="pb-3" />
                   </tr>
                 </thead>
@@ -186,7 +187,7 @@ export default async function TeacherVariantPage({
                         </td>
                         <td className="py-4">
                           <span className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-black text-cyan-700">
-                            {attempt.percent}%
+                            {primaryToEgeTestScore(attempt.score)}/100
                           </span>
                         </td>
                         <td className="py-4 text-right">

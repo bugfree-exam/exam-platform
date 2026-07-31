@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type ExamTask = {
@@ -235,9 +236,19 @@ export function ExamStationSolver({
             >
               {formatTime(secondsLeft)}
             </div>
+            <Link
+              href="/student/variants/help"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded-md border border-[#c7c9cc] bg-white px-3 py-2 text-xs font-bold text-[#1967d2] hover:bg-[#f1f3f4] md:inline-flex"
+            >
+              Справочные материалы
+            </Link>
             <button
               type="button"
               onClick={() => void toggleFullscreen()}
+              aria-label="Полноэкранный режим"
+              title="Полноэкранный режим"
               className="rounded-md border border-[#c7c9cc] bg-white px-3 py-2 text-xs font-bold hover:bg-[#f1f3f4]"
             >
               ⛶

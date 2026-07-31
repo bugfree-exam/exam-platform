@@ -4,7 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { StartVariantButton } from "@/components/variants/StartVariantButton";
 import { requireStudentPage } from "@/lib/access";
 import { formatAnswerForDisplay } from "@/lib/answer";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
+import { getVariantTaskMaxPoints } from "@/lib/variantScoring";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +90,7 @@ export default async function StudentVariantResultPage({
   const wrongTasks = attempt.variant.tasks.filter(
     (variantTask) => !answerByTaskId.get(variantTask.taskId)?.isCorrect
   );
+  const egeTestScore = primaryToEgeTestScore(attempt.score);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f4f7f8] px-4 py-5 text-slate-950 sm:px-6 sm:py-8">
@@ -122,18 +125,24 @@ export default async function StudentVariantResultPage({
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
-              <div className="text-sm text-slate-400">Набрано баллов</div>
-              <div className="mt-2 flex items-end justify-between gap-4">
-                <div className="text-5xl font-black text-white">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+                <div className="text-xs text-slate-400">Первичный балл</div>
+                <div className="mt-2 text-4xl font-black text-white">
                   {attempt.score}
-                  <span className="text-2xl text-slate-500">
+                  <span className="text-lg text-slate-500">
                     /{attempt.maxScore}
                   </span>
                 </div>
-                <span className="rounded-xl bg-cyan-300 px-3 py-2 text-xl font-black text-slate-950">
-                  {attempt.percent}%
-                </span>
+              </div>
+              <div className="rounded-2xl bg-cyan-300 p-5 text-slate-950">
+                <div className="text-xs font-bold text-cyan-950/70">
+                  Тестовый балл ЕГЭ
+                </div>
+                <div className="mt-2 text-4xl font-black">
+                  {egeTestScore}
+                  <span className="text-lg text-cyan-950/50">/100</span>
+                </div>
               </div>
             </div>
           </div>
@@ -227,14 +236,23 @@ export default async function StudentVariantResultPage({
         <section className="mt-6 space-y-4">
           {attempt.variant.tasks.map((variantTask) => {
             const answer = answerByTaskId.get(variantTask.taskId);
+            const maxPoints = getVariantTaskMaxPoints(
+              variantTask.task.egeNumber
+            );
+            const awardedPoints = answer?.awardedPoints ?? 0;
             const isCorrect = answer?.isCorrect ?? false;
+            const isPartial = awardedPoints > 0 && awardedPoints < maxPoints;
 
             return (
               <article
                 id={`result-${variantTask.taskId}`}
                 key={variantTask.id}
                 className={`scroll-mt-5 rounded-[2rem] border bg-white p-6 shadow-sm ${
-                  isCorrect ? "border-emerald-200" : "border-rose-200"
+                  isCorrect
+                    ? "border-emerald-200"
+                    : isPartial
+                      ? "border-amber-200"
+                      : "border-rose-200"
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -247,10 +265,12 @@ export default async function StudentVariantResultPage({
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
                           isCorrect
                             ? "bg-emerald-50 text-emerald-700"
-                            : "bg-rose-50 text-rose-700"
+                            : isPartial
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-rose-50 text-rose-700"
                         }`}
                       >
-                        {isCorrect ? "Верно" : "Ошибка"}
+                        {isCorrect ? "Верно" : isPartial ? "Частично" : "Ошибка"}
                       </span>
                     </div>
                     <h2 className="mt-3 text-xl font-black">
@@ -258,7 +278,7 @@ export default async function StudentVariantResultPage({
                     </h2>
                   </div>
                   <span className="font-mono text-sm font-black text-slate-500">
-                    {answer?.awardedPoints ?? 0}/{variantTask.points} балл
+                    {awardedPoints}/{maxPoints} балл
                   </span>
                 </div>
 

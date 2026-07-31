@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { getVariantTaskMaxPoints } from "@/lib/variantScoring";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,11 @@ export async function POST(request: Request, context: RouteContext) {
       include: {
         tasks: {
           select: {
-            points: true,
+            task: {
+              select: {
+                egeNumber: true,
+              },
+            },
           },
         },
       },
@@ -81,7 +86,8 @@ export async function POST(request: Request, context: RouteContext) {
         variantId,
         studentId: auth.user.id,
         maxScore: variant.tasks.reduce(
-          (sum, variantTask) => sum + variantTask.points,
+          (sum, variantTask) =>
+            sum + getVariantTaskMaxPoints(variantTask.task.egeNumber),
           0
         ),
       },

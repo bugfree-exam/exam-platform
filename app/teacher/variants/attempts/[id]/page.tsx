@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { formatAnswerForDisplay } from "@/lib/answer";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
+import { getVariantTaskMaxPoints } from "@/lib/variantScoring";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +92,7 @@ export default async function TeacherVariantAttemptPage({
               {attempt.score}/{attempt.maxScore} баллов
             </span>
             <span className="rounded-xl bg-cyan-300 px-4 py-3 font-black text-slate-950">
-              {attempt.percent}%
+              {primaryToEgeTestScore(attempt.score)}/100 ЕГЭ
             </span>
           </div>
         </header>
@@ -98,13 +100,22 @@ export default async function TeacherVariantAttemptPage({
         <section className="mt-6 space-y-4">
           {attempt.variant.tasks.map((variantTask) => {
             const answer = answerByTaskId.get(variantTask.taskId);
+            const maxPoints = getVariantTaskMaxPoints(
+              variantTask.task.egeNumber
+            );
+            const awardedPoints = answer?.awardedPoints ?? 0;
             const isCorrect = answer?.isCorrect ?? false;
+            const isPartial = awardedPoints > 0 && awardedPoints < maxPoints;
 
             return (
               <article
                 key={variantTask.id}
                 className={`rounded-[2rem] border bg-white p-6 shadow-sm ${
-                  isCorrect ? "border-emerald-200" : "border-rose-200"
+                  isCorrect
+                    ? "border-emerald-200"
+                    : isPartial
+                      ? "border-amber-200"
+                      : "border-rose-200"
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -117,10 +128,12 @@ export default async function TeacherVariantAttemptPage({
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
                           isCorrect
                             ? "bg-emerald-50 text-emerald-700"
-                            : "bg-rose-50 text-rose-700"
+                            : isPartial
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-rose-50 text-rose-700"
                         }`}
                       >
-                        {isCorrect ? "Верно" : "Ошибка"}
+                        {isCorrect ? "Верно" : isPartial ? "Частично" : "Ошибка"}
                       </span>
                     </div>
                     <h2 className="mt-3 text-xl font-black">
@@ -128,7 +141,7 @@ export default async function TeacherVariantAttemptPage({
                     </h2>
                   </div>
                   <span className="font-mono text-sm font-black text-slate-500">
-                    {answer?.awardedPoints ?? 0}/{variantTask.points}
+                    {awardedPoints}/{maxPoints}
                   </span>
                 </div>
 

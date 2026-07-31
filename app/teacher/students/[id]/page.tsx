@@ -5,6 +5,7 @@ import { StudentAccessCard } from "@/components/teacher/StudentAccessCard";
 import { StudentAccountActions } from "@/components/teacher/StudentAccountActions";
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { requireTeacherPage } from "@/lib/access";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 type TeacherStudentPageProps = {
@@ -117,6 +118,27 @@ export default async function TeacherStudentPage({
                   correctAnswer: true,
                 },
               },
+            },
+          },
+        },
+        orderBy: {
+          submittedAt: "desc",
+        },
+      },
+      variantAttempts: {
+        where: {
+          status: "SUBMITTED",
+        },
+        include: {
+          variant: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          answers: {
+            select: {
+              isCorrect: true,
             },
           },
         },
@@ -450,6 +472,71 @@ export default async function TeacherStudentPage({
                           Не сдано
                         </span>
                       )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">
+                Результаты пробных вариантов
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Все завершённые пробники ученика с первичным и тестовым баллом ЕГЭ.
+              </p>
+            </div>
+            <Link
+              href="/teacher/variants"
+              className="text-sm font-bold text-cyan-700 hover:text-cyan-900"
+            >
+              Все варианты →
+            </Link>
+          </div>
+
+          {student.variantAttempts.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              Ученик пока не завершил ни одного пробного варианта.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {student.variantAttempts.map((attempt) => {
+                const correctCount = attempt.answers.filter(
+                  (answer) => answer.isCorrect
+                ).length;
+                const style = getResultStyle(attempt.percent);
+
+                return (
+                  <Link
+                    key={attempt.id}
+                    href={`/teacher/variants/attempts/${attempt.id}`}
+                    className="rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-200 hover:bg-slate-50"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="line-clamp-2 font-semibold text-slate-900">
+                          {attempt.variant.title}
+                        </div>
+                        <div className="mt-2 text-xs leading-5 text-slate-500">
+                          {formatDateTime(attempt.submittedAt)} · {correctCount} заданий полностью верно
+                        </div>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${style.badge}`}
+                      >
+                        {primaryToEgeTestScore(attempt.score)}/100
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
+                      <span className="text-slate-500">Первичный балл</span>
+                      <span className="font-bold text-slate-900">
+                        {attempt.score}/{attempt.maxScore}
+                      </span>
                     </div>
                   </Link>
                 );

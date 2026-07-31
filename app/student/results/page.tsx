@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { requireStudentPage } from "@/lib/access";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 function getResultStyle(percent: number) {
@@ -162,6 +163,7 @@ export default async function StudentResultsPage() {
       score: attempt.score,
       maxScore: attempt.maxScore,
       percent: attempt.percent,
+      egeTestScore: null,
       submittedAt: attempt.submittedAt,
       answers: attempt.answers,
     })),
@@ -173,6 +175,7 @@ export default async function StudentResultsPage() {
       score: attempt.isCorrect ? 1 : 0,
       maxScore: 1,
       percent: attempt.isCorrect ? 100 : 0,
+      egeTestScore: null,
       submittedAt: attempt.createdAt,
       answers: [
         {
@@ -193,6 +196,7 @@ export default async function StudentResultsPage() {
       score: attempt.score,
       maxScore: attempt.maxScore,
       percent: attempt.percent,
+      egeTestScore: primaryToEgeTestScore(attempt.score),
       submittedAt: attempt.submittedAt,
       answers: attempt.answers,
     })),
@@ -762,10 +766,19 @@ export default async function StudentResultsPage() {
                           <div className="flex items-center justify-between gap-4 lg:justify-end">
                             <div className="text-right">
                               <div className="text-3xl font-black tracking-tight text-slate-950">
-                                {attempt.percent}%
+                                {attempt.source === "VARIANT"
+                                  ? attempt.egeTestScore
+                                  : `${attempt.percent}%`}
+                                {attempt.source === "VARIANT" ? (
+                                  <span className="ml-1 text-base text-cyan-700">
+                                    /100
+                                  </span>
+                                ) : null}
                               </div>
                               <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                {attempt.score}/{attempt.maxScore} баллов
+                                {attempt.source === "VARIANT"
+                                  ? `${attempt.score}/${attempt.maxScore} первичных`
+                                  : `${attempt.score}/${attempt.maxScore} баллов`}
                               </div>
                             </div>
 

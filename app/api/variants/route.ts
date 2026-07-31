@@ -87,7 +87,7 @@ export async function POST(request: Request) {
           create: parsed.data.taskIds.map((taskId, index) => ({
             taskId,
             order: index + 1,
-            points: 1,
+            points: index >= 25 ? 2 : 1,
           })),
         },
       },

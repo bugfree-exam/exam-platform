@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { checkAnswer } from "@/lib/checkAnswer";
+import {
+  getVariantAwardedPoints,
+  getVariantTaskMaxPoints,
+} from "@/lib/variantScoring";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -86,12 +90,19 @@ export async function POST(request: Request, context: RouteContext) {
         studentAnswerText: rawAnswer,
       });
 
+      const awardedPoints = getVariantAwardedPoints({
+        egeNumber: variantTask.task.egeNumber,
+        correctAnswer: variantTask.task.correctAnswer,
+        normalizedStudentAnswer: checked.normalizedStudentAnswer,
+        isFullyCorrect: checked.isCorrect,
+      });
+
       return {
         taskId: variantTask.taskId,
         rawAnswer,
         normalizedAnswer: checked.normalizedStudentAnswer,
         isCorrect: checked.isCorrect,
-        awardedPoints: checked.isCorrect ? variantTask.points : 0,
+        awardedPoints,
       };
     });
 
@@ -100,7 +111,8 @@ export async function POST(request: Request, context: RouteContext) {
       0
     );
     const maxScore = attempt.variant.tasks.reduce(
-      (sum, variantTask) => sum + variantTask.points,
+      (sum, variantTask) =>
+        sum + getVariantTaskMaxPoints(variantTask.task.egeNumber),
       0
     );
     const percent =

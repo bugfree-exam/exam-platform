@@ -98,6 +98,11 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
             ) : (
               variant.assignments.map((assignment) => {
                 const attempt = latestAttemptByStudent.get(assignment.studentId);
+                const completedAttempt =
+                  attempt?.submittedAt &&
+                  attempt.submittedAt >= assignment.assignedAt
+                    ? attempt
+                    : undefined;
                 return (
                   <article key={assignment.id} className="grid gap-4 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[minmax(0,1fr)_170px_170px] sm:items-center">
                     <div>
@@ -111,17 +116,19 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
                     </div>
                     <div>
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        attempt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                        completedAttempt
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
                       }`}>
-                        {attempt ? "Выполнено" : "Ожидает выполнения"}
+                        {completedAttempt ? "Выполнено" : "Ожидает выполнения"}
                       </span>
                     </div>
                     <div className="text-right">
-                      {attempt ? (
+                      {completedAttempt ? (
                         <>
-                          <div className="text-2xl font-black">{primaryToEgeTestScore(attempt.score)}/100</div>
+                          <div className="text-2xl font-black">{primaryToEgeTestScore(completedAttempt.score)}/100</div>
                           <div className="text-xs text-slate-500">
-                            {attempt.score}/{attempt.maxScore} первичных
+                            {completedAttempt.score}/{completedAttempt.maxScore} первичных
                           </div>
                         </>
                       ) : (

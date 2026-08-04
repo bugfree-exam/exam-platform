@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 
 const startAttemptSchema = z.object({
   restart: z.boolean().optional().default(false),
+  timerEnabled: z.boolean().optional().default(true),
 });
 
 type RouteContext = {
@@ -85,6 +86,7 @@ export async function POST(request: Request, context: RouteContext) {
       data: {
         variantId,
         studentId: auth.user.id,
+        timerEnabled: parsed.data.timerEnabled,
         maxScore: variant.tasks.reduce(
           (sum, variantTask) =>
             sum + getVariantTaskMaxPoints(variantTask.task.egeNumber),

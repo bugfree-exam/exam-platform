@@ -94,7 +94,10 @@ export function getVariantAwardedPoints({
   if (
     egeNumber === 26 &&
     isNumberList(correctAnswer) &&
-    isNumberList(normalizedStudentAnswer)
+    correctAnswer.length === 2 &&
+    isNumberList(normalizedStudentAnswer) &&
+    normalizedStudentAnswer.length >= 1 &&
+    normalizedStudentAnswer.length <= 2
   ) {
     return countMatchingNumbers(normalizedStudentAnswer, correctAnswer) >= 1
       ? 1
@@ -104,7 +107,10 @@ export function getVariantAwardedPoints({
   if (
     egeNumber === 27 &&
     isPairList(correctAnswer) &&
-    isPairList(normalizedStudentAnswer)
+    correctAnswer.length === 2 &&
+    isPairList(normalizedStudentAnswer) &&
+    normalizedStudentAnswer.length >= 1 &&
+    normalizedStudentAnswer.length <= 2
   ) {
     return countMatchingPairs(normalizedStudentAnswer, correctAnswer) >= 1
       ? 1

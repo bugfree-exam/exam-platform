@@ -14,6 +14,7 @@ type AssignVariantPageProps = {
 function formatDate(value: Date | null) {
   if (!value) return "Без срока";
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(value);
@@ -25,6 +26,9 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
     prisma.examVariant.findUnique({
       where: { id },
       include: {
+        _count: {
+          select: { tasks: true },
+        },
         assignments: {
           orderBy: { assignedAt: "desc" },
           include: { student: { select: { id: true, name: true, email: true } } },
@@ -37,19 +41,25 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
       orderBy: { name: "asc" },
     }),
     prisma.variantAttempt.findMany({
-      where: { variantId: id, status: "SUBMITTED" },
-      orderBy: { submittedAt: "desc" },
+      where: { variantId: id },
+      orderBy: { startedAt: "desc" },
       select: {
+        id: true,
         studentId: true,
+        status: true,
         score: true,
         maxScore: true,
         percent: true,
+        startedAt: true,
         submittedAt: true,
       },
     }),
   ]);
 
   if (!variant) notFound();
+
+  const isAssignable =
+    variant.status === "PUBLISHED" && variant._count.tasks === 27;
 
   const latestAttemptByStudent = new Map<
     string,
@@ -69,8 +79,8 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
           <Link href={`/teacher/variants/${variant.id}`} className="text-sm font-bold text-slate-600">
             ← К варианту
           </Link>
-          <Link href="/teacher/homeworks" className="text-sm font-bold text-cyan-700">
-            Все домашние задания
+          <Link href="/teacher/variants" className="text-sm font-bold text-cyan-700">
+            Все варианты
           </Link>
         </nav>
 
@@ -84,11 +94,20 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
           </p>
         </header>
 
-        <VariantAssignmentForm
-          variantId={variant.id}
-          students={students}
-          assignedStudentIds={variant.assignments.map((assignment) => assignment.studentId)}
-        />
+        {isAssignable ? (
+          <VariantAssignmentForm
+            variantId={variant.id}
+            students={students}
+            assignedStudentIds={variant.assignments.map((assignment) => assignment.studentId)}
+          />
+        ) : (
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm">
+            <h2 className="text-xl font-black">Вариант пока нельзя выдать</h2>
+            <p className="mt-2 text-sm leading-6">
+              Сначала опубликуйте полный вариант из 27 заданий.
+            </p>
+          </section>
+        )}
 
         <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-2xl font-black">Статистика выполнения</h2>
@@ -98,11 +117,15 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
             ) : (
               variant.assignments.map((assignment) => {
                 const attempt = latestAttemptByStudent.get(assignment.studentId);
-                const completedAttempt =
-                  attempt?.submittedAt &&
-                  attempt.submittedAt >= assignment.assignedAt
+                const currentAttempt =
+                  attempt && attempt.startedAt >= assignment.assignedAt
                     ? attempt
                     : undefined;
+                const completedAttempt =
+                  currentAttempt?.status === "SUBMITTED"
+                    ? currentAttempt
+                    : undefined;
+                const isActive = currentAttempt?.status === "IN_PROGRESS";
                 return (
                   <article key={assignment.id} className="grid gap-4 rounded-2xl border border-slate-200 p-4 sm:grid-cols-[minmax(0,1fr)_170px_170px] sm:items-center">
                     <div>
@@ -118,15 +141,26 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${
                         completedAttempt
                           ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
+                          : isActive
+                            ? "bg-cyan-50 text-cyan-700"
+                            : "bg-amber-50 text-amber-700"
                       }`}>
-                        {completedAttempt ? "Выполнено" : "Ожидает выполнения"}
+                        {completedAttempt
+                          ? "Выполнено"
+                          : isActive
+                            ? "В процессе"
+                            : "Ожидает выполнения"}
                       </span>
                     </div>
                     <div className="text-right">
                       {completedAttempt ? (
                         <>
-                          <div className="text-2xl font-black">{primaryToEgeTestScore(completedAttempt.score)}/100</div>
+                          <Link
+                            href={`/teacher/variants/attempts/${completedAttempt.id}`}
+                            className="text-2xl font-black hover:text-cyan-700"
+                          >
+                            {primaryToEgeTestScore(completedAttempt.score)}/100
+                          </Link>
                           <div className="text-xs text-slate-500">
                             {completedAttempt.score}/{completedAttempt.maxScore} первичных
                           </div>

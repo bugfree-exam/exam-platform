@@ -61,11 +61,26 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    const assignment = await prisma.variantAssignment.findUnique({
+      where: {
+        variantId_studentId: {
+          variantId,
+          studentId: auth.user.id,
+        },
+      },
+      select: {
+        assignedAt: true,
+      },
+    });
+
     const currentAttempt = await prisma.variantAttempt.findFirst({
       where: {
         variantId,
         studentId: auth.user.id,
         status: "IN_PROGRESS",
+        ...(assignment
+          ? { startedAt: { gte: assignment.assignedAt } }
+          : {}),
       },
       orderBy: {
         startedAt: "desc",

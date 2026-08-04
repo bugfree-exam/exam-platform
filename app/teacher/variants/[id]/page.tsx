@@ -15,6 +15,7 @@ function formatDate(value: Date | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -68,12 +69,13 @@ export default async function TeacherVariantPage({
     notFound();
   }
 
-  const averagePercent =
+  const averageEgeScore =
     variant.attempts.length === 0
       ? 0
       : Math.round(
           variant.attempts.reduce(
-            (sum, attempt) => sum + attempt.percent,
+            (sum, attempt) =>
+              sum + primaryToEgeTestScore(attempt.score),
             0
           ) / variant.attempts.length
         );
@@ -89,12 +91,21 @@ export default async function TeacherVariantPage({
             ← Все варианты
           </Link>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={`/teacher/variants/${variant.id}/assign`}
-              className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700"
-            >
-              Выдать как ДЗ
-            </Link>
+            {variant.status === "PUBLISHED" && variant.tasks.length === 27 ? (
+              <Link
+                href={`/teacher/variants/${variant.id}/assign`}
+                className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700"
+              >
+                Выдать как ДЗ
+              </Link>
+            ) : (
+              <span
+                title="Сначала опубликуйте полный вариант из 27 заданий"
+                className="cursor-not-allowed rounded-xl bg-slate-200 px-4 py-2 text-sm font-black text-slate-500"
+              >
+                Выдать как ДЗ
+              </span>
+            )}
             <VariantStatusButton
               variantId={variant.id}
               status={variant.status}
@@ -118,7 +129,7 @@ export default async function TeacherVariantPage({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
                 <div className="text-xs text-slate-400">Заданий</div>
                 <div className="mt-1 text-2xl font-black">
@@ -132,9 +143,9 @@ export default async function TeacherVariantPage({
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-                <div className="text-xs text-slate-400">Средний</div>
+                <div className="text-xs text-slate-400">Средний ЕГЭ</div>
                 <div className="mt-1 text-2xl font-black text-cyan-300">
-                  {averagePercent}%
+                  {averageEgeScore}
                 </div>
               </div>
             </div>

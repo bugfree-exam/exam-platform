@@ -21,6 +21,7 @@ function formatDate(value: Date | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     dateStyle: "long",
     timeStyle: "short",
   }).format(value);
@@ -87,7 +88,18 @@ export default async function StudentVariantResultPage({
   const correctCount = attempt.answers.filter(
     (answer) => answer.isCorrect
   ).length;
+  const partialTasks = attempt.variant.tasks.filter((variantTask) => {
+    const answer = answerByTaskId.get(variantTask.taskId);
+    const maxPoints = getVariantTaskMaxPoints(variantTask.task.egeNumber);
+    return Boolean(
+      answer && answer.awardedPoints > 0 && answer.awardedPoints < maxPoints
+    );
+  });
   const wrongTasks = attempt.variant.tasks.filter(
+    (variantTask) =>
+      (answerByTaskId.get(variantTask.taskId)?.awardedPoints ?? 0) === 0
+  );
+  const reviewTasks = attempt.variant.tasks.filter(
     (variantTask) => !answerByTaskId.get(variantTask.taskId)?.isCorrect
   );
   const egeTestScore = primaryToEgeTestScore(attempt.score);
@@ -148,13 +160,21 @@ export default async function StudentVariantResultPage({
           </div>
         </header>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-3">
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
               Верно
             </div>
             <div className="mt-2 text-3xl font-black text-emerald-700">
               {correctCount}
+            </div>
+          </article>
+          <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
+              Частично
+            </div>
+            <div className="mt-2 text-3xl font-black text-amber-700">
+              {partialTasks.length}
             </div>
           </article>
           <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -205,7 +225,9 @@ export default async function StudentVariantResultPage({
                   className={`grid aspect-square place-items-center rounded-xl text-sm font-black ${
                     answer?.isCorrect
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-rose-100 text-rose-800"
+                      : (answer?.awardedPoints ?? 0) > 0
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-rose-100 text-rose-800"
                   }`}
                 >
                   {variantTask.order}
@@ -214,13 +236,13 @@ export default async function StudentVariantResultPage({
             })}
           </div>
 
-          {wrongTasks.length > 0 ? (
+          {reviewTasks.length > 0 ? (
             <div className="mt-6 rounded-2xl border border-rose-100 bg-rose-50 p-5">
               <div className="font-black text-rose-900">
                 Номера для повторения
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {wrongTasks.map((variantTask) => (
+                {reviewTasks.map((variantTask) => (
                   <span
                     key={variantTask.id}
                     className="rounded-full bg-white px-3 py-1 text-sm font-bold text-rose-700"
@@ -278,7 +300,7 @@ export default async function StudentVariantResultPage({
                     </h2>
                   </div>
                   <span className="font-mono text-sm font-black text-slate-500">
-                    {awardedPoints}/{maxPoints} балл
+                    {awardedPoints}/{maxPoints} {maxPoints === 1 ? "балл" : "балла"}
                   </span>
                 </div>
 
@@ -293,7 +315,11 @@ export default async function StudentVariantResultPage({
                   </div>
                   <div
                     className={`rounded-2xl p-4 ${
-                      isCorrect ? "bg-emerald-50" : "bg-rose-50"
+                      isCorrect
+                        ? "bg-emerald-50"
+                        : isPartial
+                          ? "bg-amber-50"
+                          : "bg-rose-50"
                     }`}
                   >
                     <div className="text-xs font-bold uppercase tracking-wide text-slate-500">

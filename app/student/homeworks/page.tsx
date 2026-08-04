@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { StartVariantButton } from "@/components/variants/StartVariantButton";
 import { requireStudentPage } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 
@@ -108,6 +109,25 @@ export default async function StudentHomeworksPage() {
     orderBy: {
       assignedAt: "desc",
     },
+  });
+
+  const variantAssignments = await prisma.variantAssignment.findMany({
+    where: {
+      studentId: user.id,
+      variant: { status: "PUBLISHED" },
+    },
+    include: {
+      variant: {
+        include: {
+          attempts: {
+            where: { studentId: user.id },
+            orderBy: { startedAt: "desc" },
+            take: 1,
+          },
+        },
+      },
+    },
+    orderBy: { assignedAt: "desc" },
   });
 
   const pendingAssignments = assignments.filter(
@@ -260,7 +280,102 @@ export default async function StudentHomeworksPage() {
           </div>
         </header>
 
-        {assignments.length === 0 ? (
+        {variantAssignments.length > 0 ? (
+          <section className="mt-6 rounded-[2rem] border border-cyan-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">
+                  exam.homework
+                </div>
+                <h2 className="mt-2 text-2xl font-black tracking-tight">
+                  Варианты, выданные учителем
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Полноценные пробные работы из 27 заданий.
+                </p>
+              </div>
+              <Link
+                href="/student/variants/progress"
+                className="text-sm font-bold text-cyan-700"
+              >
+                Прогресс по вариантам →
+              </Link>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              {variantAssignments.map((assignment) => {
+                const attempt = assignment.variant.attempts[0];
+                const isCompleted = attempt?.status === "SUBMITTED";
+
+                return (
+                  <article
+                    key={assignment.id}
+                    className="rounded-3xl border border-slate-200 bg-slate-50/60 p-5"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        isCompleted
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {isCompleted ? "Выполнено" : "Нужно выполнить"}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                        27 заданий
+                      </span>
+                    </div>
+
+                    <h3 className="mt-4 text-xl font-black">
+                      {assignment.variant.title}
+                    </h3>
+                    {assignment.variant.description ? (
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        {assignment.variant.description}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
+                      <span>Выдано {formatAssignedDate(assignment.assignedAt)}</span>
+                      <span>
+                        {assignment.deadline
+                          ? `Срок: ${formatAssignedDate(assignment.deadline)}`
+                          : "Без срока"}
+                      </span>
+                    </div>
+
+                    {isCompleted ? (
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="text-2xl font-black">
+                            {attempt.score}/{attempt.maxScore}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {attempt.percent}% результата
+                          </div>
+                        </div>
+                        <Link
+                          href={`/student/variants/${assignment.variant.id}/results/${attempt.id}`}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700"
+                        >
+                          Посмотреть результат
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="mt-5">
+                        <StartVariantButton
+                          variantId={assignment.variant.id}
+                          label={attempt ? "Продолжить вариант" : "Начать вариант"}
+                        />
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {assignments.length === 0 && variantAssignments.length === 0 ? (
           <section className="mt-6 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
             <div className="mx-auto max-w-xl text-center">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-slate-950 font-mono text-xl text-cyan-300">

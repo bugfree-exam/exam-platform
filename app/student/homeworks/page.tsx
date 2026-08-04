@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { StartVariantButton } from "@/components/variants/StartVariantButton";
 import { requireStudentPage } from "@/lib/access";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 function getTaskWord(value: number) {
@@ -29,9 +30,20 @@ function getHomeworkWord(value: number) {
 
 function formatAssignedDate(value: Date) {
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "long",
     year: "numeric",
+  }).format(value);
+}
+
+function formatDeadline(value: Date) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(value);
 }
 
@@ -39,6 +51,7 @@ function formatSubmittedDate(value: Date | null) {
   if (!value) return "Дата выполнения не указана";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "long",
     hour: "2-digit",
@@ -119,6 +132,9 @@ export default async function StudentHomeworksPage() {
     include: {
       variant: {
         include: {
+          _count: {
+            select: { tasks: true },
+          },
           attempts: {
             where: { studentId: user.id },
             orderBy: { startedAt: "desc" },
@@ -138,9 +154,36 @@ export default async function StudentHomeworksPage() {
     (assignment) => Boolean(assignment.homework.attempts[0])
   );
 
-  const completedPercents = completedAssignments.map(
-    (assignment) => assignment.homework.attempts[0]?.percent ?? 0
+  const variantAssignmentStates = variantAssignments.map((assignment) => {
+    const attempt = assignment.variant.attempts[0];
+    const isCurrentAttempt = Boolean(
+      attempt && attempt.startedAt >= assignment.assignedAt
+    );
+
+    return {
+      assignment,
+      attempt: isCurrentAttempt ? attempt : undefined,
+      isActive: isCurrentAttempt && attempt?.status === "IN_PROGRESS",
+      isCompleted:
+        isCurrentAttempt && attempt?.status === "SUBMITTED",
+    };
+  });
+
+  const completedVariantAssignments = variantAssignmentStates.filter(
+    (item) => item.isCompleted
   );
+  const pendingVariantAssignments = variantAssignmentStates.filter(
+    (item) => !item.isCompleted
+  );
+
+  const completedPercents = [
+    ...completedAssignments.map(
+      (assignment) => assignment.homework.attempts[0]?.percent ?? 0
+    ),
+    ...completedVariantAssignments.map(
+      (item) => item.attempt?.percent ?? 0
+    ),
+  ];
 
   const averageCompletedPercent =
     completedPercents.length === 0
@@ -153,17 +196,29 @@ export default async function StudentHomeworksPage() {
   const totalTasks = assignments.reduce(
     (sum, assignment) => sum + assignment.homework.tasks.length,
     0
+  ) + variantAssignments.reduce(
+    (sum, assignment) => sum + assignment.variant._count.tasks,
+    0
   );
 
   const completedTasks = completedAssignments.reduce(
     (sum, assignment) => sum + assignment.homework.tasks.length,
     0
+  ) + completedVariantAssignments.reduce(
+    (sum, item) => sum + item.assignment.variant._count.tasks,
+    0
   );
 
+  const totalAssignments = assignments.length + variantAssignments.length;
+  const completedAssignmentsCount =
+    completedAssignments.length + completedVariantAssignments.length;
+  const pendingAssignmentsCount =
+    pendingAssignments.length + pendingVariantAssignments.length;
+
   const completionPercent =
-    assignments.length === 0
+    totalAssignments === 0
       ? 0
-      : Math.round((completedAssignments.length / assignments.length) * 100);
+      : Math.round((completedAssignmentsCount / totalAssignments) * 100);
 
   const nextAssignment = pendingAssignments[0] ?? null;
 
@@ -229,7 +284,7 @@ export default async function StudentHomeworksPage() {
                 </span>
 
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-slate-300">
-                  {pendingAssignments.length} ждут выполнения
+                  {pendingAssignmentsCount} ждут выполнения
                 </span>
               </div>
 
@@ -257,7 +312,7 @@ export default async function StudentHomeworksPage() {
 
                 <div className="text-right">
                   <div className="text-sm font-bold text-white">
-                    {completedAssignments.length}/{assignments.length}
+                    {completedAssignmentsCount}/{totalAssignments}
                   </div>
                   <div className="mt-1 text-xs text-slate-400">
                     домашних работ
@@ -303,27 +358,26 @@ export default async function StudentHomeworksPage() {
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              {variantAssignments.map((assignment) => {
-                const attempt = assignment.variant.attempts[0];
-                const isCompleted = Boolean(
-                  attempt?.status === "SUBMITTED" &&
-                    attempt.submittedAt &&
-                    attempt.submittedAt >= assignment.assignedAt
-                );
-                const isActive = attempt?.status === "IN_PROGRESS";
-
-                return (
-                  <article
-                    key={assignment.id}
-                    className="rounded-3xl border border-slate-200 bg-slate-50/60 p-5"
-                  >
+              {variantAssignmentStates.map(
+                ({ assignment, attempt, isCompleted, isActive }) => {
+                  return (
+                    <article
+                      key={assignment.id}
+                      className="rounded-3xl border border-slate-200 bg-slate-50/60 p-5"
+                    >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${
                         isCompleted
                           ? "bg-emerald-50 text-emerald-700"
-                          : "bg-amber-50 text-amber-700"
+                          : isActive
+                            ? "bg-cyan-50 text-cyan-700"
+                            : "bg-amber-50 text-amber-700"
                       }`}>
-                        {isCompleted ? "Выполнено" : "Нужно выполнить"}
+                        {isCompleted
+                          ? "Выполнено"
+                          : isActive
+                            ? "В процессе"
+                            : "Нужно выполнить"}
                       </span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
                         27 заданий
@@ -343,19 +397,19 @@ export default async function StudentHomeworksPage() {
                       <span>Выдано {formatAssignedDate(assignment.assignedAt)}</span>
                       <span>
                         {assignment.deadline
-                          ? `Срок: ${formatAssignedDate(assignment.deadline)}`
+                          ? `Срок: ${formatDeadline(assignment.deadline)} (МСК)`
                           : "Без срока"}
                       </span>
                     </div>
 
-                    {isCompleted ? (
+                    {isCompleted && attempt ? (
                       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <div className="text-2xl font-black">
                             {attempt.score}/{attempt.maxScore}
                           </div>
                           <div className="text-xs text-slate-500">
-                            {attempt.percent}% результата
+                            {primaryToEgeTestScore(attempt.score)}/100 тестовых баллов ЕГЭ
                           </div>
                         </div>
                         <Link
@@ -374,9 +428,10 @@ export default async function StudentHomeworksPage() {
                         />
                       </div>
                     )}
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                }
+              )}
             </div>
           </section>
         ) : null}
@@ -419,7 +474,7 @@ export default async function StudentHomeworksPage() {
                       Всего работ
                     </div>
                     <div className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-                      {assignments.length}
+                      {totalAssignments}
                     </div>
                   </div>
 
@@ -440,7 +495,7 @@ export default async function StudentHomeworksPage() {
                       Нужно выполнить
                     </div>
                     <div className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-                      {pendingAssignments.length}
+                      {pendingAssignmentsCount}
                     </div>
                   </div>
 
@@ -450,7 +505,7 @@ export default async function StudentHomeworksPage() {
                 </div>
 
                 <p className="mt-3 text-sm text-amber-800/70">
-                  {pendingAssignments.length === 0
+                  {pendingAssignmentsCount === 0
                     ? "Все работы выполнены"
                     : "Работы без отправленной попытки"}
                 </p>

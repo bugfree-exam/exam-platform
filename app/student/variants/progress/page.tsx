@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 function shortDate(value: Date | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "short",
   }).format(value);
@@ -49,7 +50,7 @@ export default async function VariantProgressPage() {
   const height = 360;
   const left = 58;
   const right = 24;
-  const top = 24;
+  const top = 36;
   const bottom = 58;
   const chartWidth = width - left - right;
   const chartHeight = height - top - bottom;
@@ -127,7 +128,7 @@ export default async function VariantProgressPage() {
                   viewBox={`0 0 ${width} ${height}`}
                   role="img"
                   aria-label="Линейный график результатов по вариантам"
-                  className="min-w-[720px]"
+                  className="h-auto w-full min-w-[720px]"
                 >
                   {[0, 20, 40, 60, 80, 100].map((score) => {
                     const y = yFor(score);

@@ -78,6 +78,7 @@ model User {
   attempts          Attempt[]
   practiceAttempts  PracticeAttempt[]
   variantAttempts   VariantAttempt[]
+  variantAssignments VariantAssignment[]
 
   lastActivityAt DateTime?
 
@@ -189,8 +190,9 @@ model Attempt {
   maxScore Int   @default(0)
   percent  Float @default(0)
 
-  startedAt   DateTime  @default(now())
-  submittedAt DateTime?
+  timerEnabled Boolean  @default(true)
+  startedAt    DateTime  @default(now())
+  submittedAt  DateTime?
 
   homework Homework        @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
   student  User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -246,8 +248,9 @@ model ExamVariant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks    VariantTask[]
-  attempts VariantAttempt[]
+  tasks       VariantTask[]
+  attempts    VariantAttempt[]
+  assignments VariantAssignment[]
 
   @@index([status, createdAt])
 }
@@ -288,6 +291,21 @@ model VariantAttempt {
   @@index([variantId, submittedAt])
   @@index([studentId, submittedAt])
   @@index([studentId, variantId, status])
+}
+
+model VariantAssignment {
+  id        String @id @default(cuid())
+  variantId String
+  studentId String
+  deadline  DateTime?
+  assignedAt DateTime @default(now())
+
+  variant ExamVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, studentId])
+  @@index([studentId, assignedAt])
+  @@index([variantId])
 }
 
 model VariantAttemptAnswer {

@@ -51,9 +51,16 @@ export default async function AssignVariantPage({ params }: AssignVariantPagePro
 
   if (!variant) notFound();
 
-  const latestAttemptByStudent = new Map(
-    attempts.map((attempt) => [attempt.studentId, attempt])
-  );
+  const latestAttemptByStudent = new Map<
+    string,
+    (typeof attempts)[number]
+  >();
+
+  for (const attempt of attempts) {
+    if (!latestAttemptByStudent.has(attempt.studentId)) {
+      latestAttemptByStudent.set(attempt.studentId, attempt);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f7f8] px-4 py-6 text-slate-950 sm:px-6 sm:py-8">

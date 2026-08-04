@@ -366,3 +366,18 @@ model WebinarMaterial {
 
   @@index([webinarId])
 }
+
+model WebinarSchedule {
+  id           String   @id @default(cuid())
+  topic        String
+  announcement String?
+  joinUrl      String
+  scheduledAt DateTime
+  isPublished Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isPublished, scheduledAt])
+  @@index([scheduledAt])
+}

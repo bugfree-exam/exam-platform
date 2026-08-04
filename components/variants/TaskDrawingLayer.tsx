@@ -35,6 +35,58 @@ function pathFromPoints(points: Point[], width: number, height: number) {
     .join(" ");
 }
 
+function distanceToSegment(point: Point, start: Point, end: Point) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y);
+  }
+
+  const progress = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) /
+        lengthSquared
+    )
+  );
+  const closest = {
+    x: start.x + progress * dx,
+    y: start.y + progress * dy,
+  };
+
+  return Math.hypot(point.x - closest.x, point.y - closest.y);
+}
+
+function strokeTouchesPoint(
+  stroke: Stroke,
+  point: Point,
+  width: number,
+  height: number
+) {
+  const pointInPixels = { x: point.x * width, y: point.y * height };
+  const strokePoints = stroke.points.map((strokePoint) => ({
+    x: strokePoint.x * width,
+    y: strokePoint.y * height,
+  }));
+  const hitRadius = Math.max(14, stroke.width / 2 + 10);
+
+  if (strokePoints.length === 1) {
+    return (
+      Math.hypot(
+        pointInPixels.x - strokePoints[0].x,
+        pointInPixels.y - strokePoints[0].y
+      ) <= hitRadius
+    );
+  }
+
+  return strokePoints.slice(1).some((end, index) =>
+    distanceToSegment(pointInPixels, strokePoints[index], end) <= hitRadius
+  );
+}
+
 export function TaskDrawingLayer({
   attemptId,
   taskId,
@@ -47,6 +99,7 @@ export function TaskDrawingLayer({
   const storageKey = `exam-drawings:${attemptId}`;
   const svgRef = useRef<SVGSVGElement>(null);
   const drawingIdRef = useRef<string | null>(null);
+  const erasingRef = useRef(false);
   const [tool, setTool] = useState<Tool>("off");
   const [color, setColor] = useState(COLORS[0]);
   const [lineWidth, setLineWidth] = useState(5);
@@ -100,10 +153,32 @@ export function TaskDrawingLayer({
     };
   }
 
-  function beginStroke(event: ReactPointerEvent<SVGSVGElement>) {
-    if (tool !== "pen") return;
+  function eraseAtPoint(point: Point) {
+    setDrawings((current) => ({
+      ...current,
+      [taskId]: (current[taskId] ?? []).filter(
+        (stroke) =>
+          !strokeTouchesPoint(
+            stroke,
+            point,
+            canvasSize.width,
+            canvasSize.height
+          )
+      ),
+    }));
+  }
+
+  function beginInteraction(event: ReactPointerEvent<SVGSVGElement>) {
+    if (tool === "off" || event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
+
+    if (tool === "eraser") {
+      erasingRef.current = true;
+      eraseAtPoint(pointFromEvent(event));
+      return;
+    }
+
     const id = crypto.randomUUID();
     drawingIdRef.current = id;
     const stroke: Stroke = {
@@ -118,7 +193,13 @@ export function TaskDrawingLayer({
     }));
   }
 
-  function extendStroke(event: ReactPointerEvent<SVGSVGElement>) {
+  function continueInteraction(event: ReactPointerEvent<SVGSVGElement>) {
+    if (tool === "eraser" && erasingRef.current) {
+      event.preventDefault();
+      eraseAtPoint(pointFromEvent(event));
+      return;
+    }
+
     const id = drawingIdRef.current;
     if (!id || tool !== "pen") return;
     event.preventDefault();
@@ -133,19 +214,13 @@ export function TaskDrawingLayer({
     }));
   }
 
-  function endStroke(event: ReactPointerEvent<SVGSVGElement>) {
-    if (!drawingIdRef.current) return;
+  function endInteraction(event: ReactPointerEvent<SVGSVGElement>) {
+    if (!drawingIdRef.current && !erasingRef.current) return;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     drawingIdRef.current = null;
-  }
-
-  function eraseStroke(id: string) {
-    setDrawings((current) => ({
-      ...current,
-      [taskId]: (current[taskId] ?? []).filter((stroke) => stroke.id !== id),
-    }));
+    erasingRef.current = false;
   }
 
   return (
@@ -218,7 +293,7 @@ export function TaskDrawingLayer({
           {tool === "off"
             ? "Включите инструмент, чтобы рисовать"
             : tool === "eraser"
-              ? "Нажмите на линию — она удалится целиком"
+              ? "Зажмите и проведите рядом с линией — она удалится целиком"
               : "Рисунок сохраняется на этом устройстве"}
         </span>
       </div>
@@ -235,10 +310,14 @@ export function TaskDrawingLayer({
                 ? "cursor-crosshair touch-none"
                 : "cursor-crosshair touch-none"
           }`}
-          onPointerDown={beginStroke}
-          onPointerMove={extendStroke}
-          onPointerUp={endStroke}
-          onPointerCancel={endStroke}
+          onPointerDown={beginInteraction}
+          onPointerMove={continueInteraction}
+          onPointerUp={endInteraction}
+          onPointerCancel={endInteraction}
+          onLostPointerCapture={() => {
+            drawingIdRef.current = null;
+            erasingRef.current = false;
+          }}
         >
           {strokes.map((stroke) => (
             <path
@@ -250,14 +329,7 @@ export function TaskDrawingLayer({
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
-              className={tool === "eraser" ? "pointer-events-auto" : "pointer-events-none"}
-              style={{ pointerEvents: tool === "eraser" ? "stroke" : "none" }}
-              onPointerDown={(event) => {
-                if (tool !== "eraser") return;
-                event.preventDefault();
-                event.stopPropagation();
-                eraseStroke(stroke.id);
-              }}
+              className="pointer-events-none"
             />
           ))}
         </svg>

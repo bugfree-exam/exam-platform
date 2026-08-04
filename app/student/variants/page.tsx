@@ -167,6 +167,7 @@ export default async function StudentVariantsPage() {
                     <StartVariantButton
                       variantId={variant.id}
                       restart={Boolean(latestResult && !activeAttempt)}
+                      resume={Boolean(activeAttempt)}
                       label={
                         activeAttempt
                           ? "Продолжить решение"

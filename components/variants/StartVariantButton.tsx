@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 type StartVariantButtonProps = {
   variantId: string;
   restart?: boolean;
+  resume?: boolean;
   label?: string;
 };
 
 export function StartVariantButton({
   variantId,
   restart = false,
+  resume = false,
   label,
 }: StartVariantButtonProps) {
   const router = useRouter();
@@ -57,7 +59,8 @@ export function StartVariantButton({
           Как будете решать?
         </div>
         <p className="mt-1 text-xs leading-5 text-slate-600">
-          С таймером работа завершится через 3 ч 55 мин. Без таймера ограничений нет.
+          С таймером работа завершится по окончании установленного времени. Без
+          таймера ограничений нет.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -94,7 +97,9 @@ export function StartVariantButton({
     <div>
       <button
         type="button"
-        onClick={() => setShowTimerChoice(true)}
+        onClick={() =>
+          resume ? void start(true) : setShowTimerChoice(true)
+        }
         disabled={isPending}
         className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700 disabled:opacity-60"
       >

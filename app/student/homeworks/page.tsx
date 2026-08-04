@@ -305,7 +305,12 @@ export default async function StudentHomeworksPage() {
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {variantAssignments.map((assignment) => {
                 const attempt = assignment.variant.attempts[0];
-                const isCompleted = attempt?.status === "SUBMITTED";
+                const isCompleted = Boolean(
+                  attempt?.status === "SUBMITTED" &&
+                    attempt.submittedAt &&
+                    attempt.submittedAt >= assignment.assignedAt
+                );
+                const isActive = attempt?.status === "IN_PROGRESS";
 
                 return (
                   <article
@@ -364,7 +369,8 @@ export default async function StudentHomeworksPage() {
                       <div className="mt-5">
                         <StartVariantButton
                           variantId={assignment.variant.id}
-                          label={attempt ? "Продолжить вариант" : "Начать вариант"}
+                          resume={isActive}
+                          label={isActive ? "Продолжить вариант" : "Начать вариант"}
                         />
                       </div>
                     )}

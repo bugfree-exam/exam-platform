@@ -22,7 +22,8 @@ export async function POST(request: Request, context: RouteContext) {
     if (!auth.ok) return auth.response;
 
     const { id: variantId } = await context.params;
-    const parsed = assignVariantSchema.safeParse(await request.json());
+    const body: unknown = await request.json().catch(() => null);
+    const parsed = assignVariantSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -55,7 +56,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     if (studentCount !== uniqueStudentIds.length) {
       return NextResponse.json(
-        { message: "Некоторые ученики не найдены или находятся в архиве" },
+        { message: "Некоторые ученики не найдены или не имеют активного доступа" },
         { status: 400 }
       );
     }

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { StartVariantButton } from "@/components/variants/StartVariantButton";
 import { requireStudentPage } from "@/lib/access";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ function formatDate(value: Date | null) {
   if (!value) return "—";
 
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Europe/Moscow",
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -38,7 +40,6 @@ export default async function StudentVariantsPage() {
           status: true,
           score: true,
           maxScore: true,
-          percent: true,
           submittedAt: true,
         },
       },
@@ -153,10 +154,10 @@ export default async function StudentVariantsPage() {
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-black text-cyan-700">
-                            {latestResult.percent}%
+                            {primaryToEgeTestScore(latestResult.score)}/100
                           </div>
                           <div className="mt-1 text-xs text-slate-500">
-                            {formatDate(latestResult.submittedAt)}
+                            ЕГЭ · {formatDate(latestResult.submittedAt)}
                           </div>
                         </div>
                       </div>

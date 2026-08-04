@@ -68,12 +68,20 @@ export default async function StudentVariantsPage() {
           <Link href="/student" className="text-sm font-bold text-slate-700">
             ← В кабинет
           </Link>
-          <Link
-            href="/student/results"
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700"
-          >
-            Мои результаты
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/student/variants/progress"
+              className="rounded-xl bg-cyan-50 px-4 py-2 text-sm font-bold text-cyan-700"
+            >
+              Прогресс по вариантам
+            </Link>
+            <Link
+              href="/student/results"
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700"
+            >
+              Все результаты
+            </Link>
+          </div>
         </nav>
 
         <header className="mt-5 overflow-hidden rounded-[2rem] bg-slate-950 p-7 text-white shadow-xl sm:p-9">
@@ -84,7 +92,7 @@ export default async function StudentVariantsPage() {
             Решать варианты
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-            Полноценная работа из 27 заданий с таймером и интерфейсом,
+            Полноценная работа из 27 заданий с добровольным таймером и интерфейсом,
             приближённым к экзаменационной станции.
           </p>
         </header>

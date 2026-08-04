@@ -82,6 +82,7 @@ export default async function StudentVariantAttemptPage({
       variantId={variantId}
       variantTitle={attempt.variant.title}
       durationMinutes={attempt.variant.durationMinutes}
+      timerEnabled={attempt.timerEnabled}
       startedAt={attempt.startedAt.toISOString()}
       savedAnswers={savedAnswers}
       tasks={attempt.variant.tasks.map((variantTask) => ({

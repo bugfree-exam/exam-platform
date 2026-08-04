@@ -125,6 +125,7 @@ export default async function TeacherPage() {
     inactiveStudents,
     activeAssignments,
     submittedAttempts,
+    upcomingWebinarsCount,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["studentStatus"],
@@ -281,6 +282,12 @@ export default async function TeacherPage() {
         homeworkId: true,
       },
     }),
+    prisma.webinarSchedule.count({
+      where: {
+        isPublished: true,
+        scheduledAt: { gte: now },
+      },
+    }),
   ]);
 
   const studentCountMap = new Map(
@@ -410,6 +417,14 @@ export default async function TeacherPage() {
       description: "Записи, конспекты, материалы и управление публикациями.",
       value: publishedWebinarsCount,
       unit: "опубликовано",
+    },
+    {
+      href: "/teacher/webinar-schedule",
+      code: "08",
+      title: "Расписание вебинаров",
+      description: "Даты живых встреч, анонсы и ссылки для подключения.",
+      value: upcomingWebinarsCount,
+      unit: "предстоит",
     },
   ];
 

@@ -56,13 +56,19 @@ export async function POST(request: Request) {
 
     const uploadDir = path.isAbsolute(env.UPLOAD_DIR)
       ? env.UPLOAD_DIR
-      : path.join("public", "uploads");
+      : path.join(
+          /* turbopackIgnore: true */ process.cwd(),
+          env.UPLOAD_DIR
+        );
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    await writeFile(path.join(uploadDir, fileName), buffer);
+    await writeFile(
+      path.join(/* turbopackIgnore: true */ uploadDir, fileName),
+      buffer
+    );
 
     return NextResponse.json({
       url: `/uploads/${fileName}`,

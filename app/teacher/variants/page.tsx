@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { VariantStatusButton } from "@/components/variants/VariantStatusButton";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function TeacherVariantsPage() {
       },
       attempts: {
         where: { status: "SUBMITTED" },
-        select: { percent: true },
+        select: { score: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -73,12 +74,13 @@ export default async function TeacherVariantsPage() {
         ) : (
           <section className="mt-6 grid gap-4 lg:grid-cols-2">
             {variants.map((variant) => {
-              const average =
+              const averageEgeScore =
                 variant.attempts.length === 0
                   ? 0
                   : Math.round(
                       variant.attempts.reduce(
-                        (sum, attempt) => sum + attempt.percent,
+                        (sum, attempt) =>
+                          sum + primaryToEgeTestScore(attempt.score),
                         0
                       ) / variant.attempts.length
                     );
@@ -110,8 +112,8 @@ export default async function TeacherVariantsPage() {
                       </div>
                     </div>
                     <div className="rounded-2xl bg-slate-50 p-3">
-                      <div className="text-xs text-slate-500">Средний</div>
-                      <div className="mt-1 text-xl font-black">{average}%</div>
+                      <div className="text-xs text-slate-500">Средний ЕГЭ</div>
+                      <div className="mt-1 text-xl font-black">{averageEgeScore}</div>
                     </div>
                     <div className="rounded-2xl bg-slate-50 p-3">
                       <div className="text-xs text-slate-500">Время</div>

@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import { LogoutButton } from "@/components/LogoutButton";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 type SectionIconName =
   | "homeworks"
@@ -221,15 +224,17 @@ function ArrowIcon() {
 
 export default async function StudentPage() {
   const user = await getCurrentUser();
+  const upcomingWebinars = await prisma.webinarSchedule.findMany({
+    where: {
+      isPublished: true,
+      scheduledAt: { gte: new Date() },
+    },
+    orderBy: { scheduledAt: "asc" },
+    take: 6,
+  });
 
   const fullName = user?.name?.trim() || "Ученик";
   const firstName = fullName.split(" ")[0];
-  const initials = fullName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f7fa] text-[#102638]">
@@ -283,8 +288,8 @@ export default async function StudentPage() {
           </div>
         </header>
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.65fr)]">
-          <div className="relative overflow-hidden rounded-[32px] bg-[#0a2435] px-6 py-7 text-white shadow-[0_28px_80px_rgba(7,31,47,0.22)] sm:px-8 sm:py-9 lg:px-10 lg:py-11">
+        <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
+          <div className="relative overflow-hidden rounded-[32px] bg-[#0a2435] px-6 py-7 text-white shadow-[0_28px_80px_rgba(7,31,47,0.22)] sm:px-8 lg:px-9 lg:py-8">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 opacity-20"
@@ -309,11 +314,11 @@ export default async function StudentPage() {
                 </span>
               </div>
 
-              <div className="mt-8 max-w-3xl">
+              <div className="mt-6 max-w-3xl">
                 <p className="font-mono text-xs uppercase tracking-[0.2em] text-cyan-300">
                   Student_dashboard
                 </p>
-                <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] sm:text-4xl lg:text-5xl">
+                <h1 className="mt-3 text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
                   Добро пожаловать, {firstName}!
                 </h1>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
@@ -322,7 +327,7 @@ export default async function StudentPage() {
                 </p>
               </div>
 
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/student/homeworks"
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-300 px-5 py-3 text-sm font-bold text-[#082334] shadow-[0_12px_30px_rgba(103,232,249,0.18)] transition hover:-translate-y-0.5 hover:bg-cyan-200"
@@ -344,88 +349,85 @@ export default async function StudentPage() {
                 </Link>
               </div>
 
-              <div className="mt-9 grid gap-2 border-t border-white/10 pt-6 font-mono text-[11px] text-slate-400 sm:grid-cols-2 sm:text-xs lg:grid-cols-5">
-                <div>
-                  <span className="text-slate-600">01</span>{" "}
-                  homework_tracking: <span className="text-emerald-300">enabled</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">02</span>{" "}
-                  trainer: <span className="text-emerald-300">ready</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">03</span>{" "}
-                  variants: <span className="text-emerald-300">exam-ready</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">04</span>{" "}
-                  results: <span className="text-emerald-300">visible</span>
-                </div>
-                <div>
-                  <span className="text-slate-600">05</span>{" "}
-                  materials: <span className="text-emerald-300">available</span>
-                </div>
-              </div>
             </div>
           </div>
 
-          <aside className="flex flex-col rounded-[32px] border border-white/90 bg-white/90 p-6 shadow-[0_24px_70px_rgba(16,38,56,0.08)] backdrop-blur-xl sm:p-7">
+          <aside className="flex flex-col rounded-[32px] border border-white/90 bg-white/90 p-5 shadow-[0_24px_70px_rgba(16,38,56,0.08)] backdrop-blur-xl sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                /student/profile
+                /live/schedule
               </span>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
-                secure
+              <span className="rounded-full bg-cyan-50 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-700">
+                МСК
               </span>
             </div>
 
-            <div className="mt-7 flex items-center gap-4">
-              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#e6f8fb] font-mono text-lg font-bold text-[#0e7181]">
-                {initials || "У"}
+            <h2 className="mt-4 text-xl font-bold tracking-[-0.025em] text-[#102638]">
+              Ближайшие вебинары
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Живые встречи и ссылки для подключения
+            </p>
+
+            {upcomingWebinars.length === 0 ? (
+              <div className="mt-5 flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm leading-6 text-slate-500">
+                Новых встреч пока нет. Расписание появится здесь после
+                публикации.
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-lg font-bold tracking-[-0.02em] text-[#102638]">
-                  {fullName}
-                </p>
-                <p className="mt-1 truncate text-sm text-slate-500">
-                  {user?.email || "Ученик курса"}
-                </p>
+            ) : (
+              <div className="mt-5 max-h-[330px] space-y-3 overflow-y-auto pr-1">
+                {upcomingWebinars.map((webinar) => {
+                  const dateParts = new Intl.DateTimeFormat("ru-RU", {
+                    timeZone: "Europe/Moscow",
+                    day: "2-digit",
+                    month: "short",
+                  }).formatToParts(webinar.scheduledAt);
+                  const day = dateParts.find((part) => part.type === "day")?.value;
+                  const month = dateParts
+                    .find((part) => part.type === "month")
+                    ?.value.replace(".", "");
+                  const time = new Intl.DateTimeFormat("ru-RU", {
+                    timeZone: "Europe/Moscow",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }).format(webinar.scheduledAt);
+
+                  return (
+                    <a
+                      key={webinar.id}
+                      href={webinar.joinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group flex gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 transition hover:border-cyan-200 hover:bg-cyan-50/60"
+                    >
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-white text-center shadow-sm">
+                        <span>
+                          <span className="block text-lg font-black leading-none text-[#102638]">
+                            {day}
+                          </span>
+                          <span className="mt-1 block text-[10px] font-bold uppercase tracking-wide text-cyan-700">
+                            {month}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xs font-bold text-cyan-700">
+                          {time} МСК
+                        </span>
+                        <span className="mt-1 block text-sm font-bold leading-5 text-[#102638] group-hover:text-cyan-900">
+                          {webinar.topic}
+                        </span>
+                        {webinar.announcement ? (
+                          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">
+                            {webinar.announcement}
+                          </span>
+                        ) : null}
+                      </span>
+                    </a>
+                  );
+                })}
               </div>
-            </div>
-
-            <div className="my-6 h-px bg-slate-100" />
-
-            <div>
-              <p className="text-sm font-bold text-[#102638]">
-                Система подготовки активна
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Все основные разделы доступны в личном кабинете и связаны в
-                единый учебный маршрут.
-              </p>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {[
-                ["Задания", "ready"],
-                ["Тренажёр", "online"],
-                ["Варианты", "exam-ready"],
-                ["Результаты", "tracked"],
-                ["Материалы", "online"],
-              ].map(([label, status]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-3"
-                >
-                  <span className="text-sm font-medium text-slate-600">
-                    {label}
-                  </span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700">
-                    {status}
-                  </span>
-                </div>
-              ))}
-            </div>
+            )}
           </aside>
         </section>
 

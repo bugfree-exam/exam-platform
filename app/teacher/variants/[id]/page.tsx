@@ -88,10 +88,18 @@ export default async function TeacherVariantPage({
           >
             ← Все варианты
           </Link>
-          <VariantStatusButton
-            variantId={variant.id}
-            status={variant.status}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/teacher/variants/${variant.id}/assign`}
+              className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-black text-white transition hover:bg-cyan-700"
+            >
+              Выдать как ДЗ
+            </Link>
+            <VariantStatusButton
+              variantId={variant.id}
+              status={variant.status}
+            />
+          </div>
         </nav>
 
         <header className="mt-5 rounded-[2rem] bg-slate-950 p-7 text-white shadow-xl sm:p-9">

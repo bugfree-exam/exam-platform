@@ -29,6 +29,7 @@ type ExamStationSolverProps = {
   variantId: string;
   variantTitle: string;
   durationMinutes: number;
+  timerEnabled: boolean;
   startedAt: string;
   tasks: ExamTask[];
   savedAnswers: Record<string, string>;
@@ -64,6 +65,7 @@ export function ExamStationSolver({
   variantId,
   variantTitle,
   durationMinutes,
+  timerEnabled,
   startedAt,
   tasks,
   savedAnswers,
@@ -93,12 +95,14 @@ export function ExamStationSolver({
   ).length;
 
   useEffect(() => {
+    if (!timerEnabled) return;
+
     const interval = window.setInterval(() => {
       setSecondsLeft(Math.max(0, Math.ceil((endTime - Date.now()) / 1000)));
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [endTime]);
+  }, [endTime, timerEnabled]);
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -184,7 +188,7 @@ export function ExamStationSolver({
   }
 
   useEffect(() => {
-    if (secondsLeft === 0 && !submissionStarted.current) {
+    if (timerEnabled && secondsLeft === 0 && !submissionStarted.current) {
       void submitAttempt(true);
     }
   });
@@ -229,12 +233,12 @@ export function ExamStationSolver({
             </div>
             <div
               className={`rounded-md border px-3 py-2 font-mono text-base font-bold ${
-                secondsLeft <= 900
+                timerEnabled && secondsLeft <= 900
                   ? "border-red-300 bg-red-50 text-red-700"
                   : "border-[#c7c9cc] bg-white"
               }`}
             >
-              {formatTime(secondsLeft)}
+              {timerEnabled ? formatTime(secondsLeft) : "Без таймера"}
             </div>
             <Link
               href="/student/variants/help"

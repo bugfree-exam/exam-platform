@@ -305,17 +305,17 @@ export function ExamStationSolver({
         </aside>
 
         <section className="min-w-0 p-3 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-5xl overflow-hidden rounded-md border border-[#c7c9cc] bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-4 border-b border-[#dadce0] bg-[#f8f9fa] px-5 py-3">
-              <div className="font-bold">
-                Задание {currentTask.order} из {tasks.length}
+          <TaskDrawingLayer attemptId={attemptId} taskId={currentTask.id}>
+            <div className="mx-auto max-w-5xl overflow-hidden rounded-md border border-[#c7c9cc] bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-4 border-b border-[#dadce0] bg-[#f8f9fa] px-5 py-3">
+                <div className="font-bold">
+                  Задание {currentTask.order} из {tasks.length}
+                </div>
+                <div className="text-xs text-[#5f6368]">
+                  №{currentTask.egeNumber} ЕГЭ
+                </div>
               </div>
-              <div className="text-xs text-[#5f6368]">
-                №{currentTask.egeNumber} ЕГЭ
-              </div>
-            </div>
 
-            <TaskDrawingLayer attemptId={attemptId} taskId={currentTask.id}>
               <article className="min-h-[440px] p-5 sm:p-8">
                 <h1 className="text-lg font-bold">{currentTask.title}</h1>
                 <div
@@ -344,75 +344,75 @@ export function ExamStationSolver({
                   </div>
                 ) : null}
               </article>
-            </TaskDrawingLayer>
 
-            <div className="border-t border-[#dadce0] bg-[#f8f9fa] p-5 sm:p-6">
-              <label className="block text-sm font-bold">Ответ</label>
-              {currentTask.answerType.startsWith("PAIR_LIST") ? (
-                <textarea
-                  rows={4}
-                  value={answers[currentTask.id] ?? ""}
-                  onChange={(event) =>
-                    setAnswers((current) => ({
-                      ...current,
-                      [currentTask.id]: event.target.value,
-                    }))
-                  }
-                  placeholder={answerPlaceholder(currentTask.answerType)}
-                  className="mt-2 w-full rounded-sm border border-[#9aa0a6] bg-white px-3 py-3 font-mono text-sm outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
-                />
-              ) : (
-                <input
-                  value={answers[currentTask.id] ?? ""}
-                  onChange={(event) =>
-                    setAnswers((current) => ({
-                      ...current,
-                      [currentTask.id]: event.target.value,
-                    }))
-                  }
-                  placeholder={answerPlaceholder(currentTask.answerType)}
-                  className="mt-2 w-full rounded-sm border border-[#9aa0a6] bg-white px-3 py-3 font-mono text-sm outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
-                />
-              )}
+              <div className="border-t border-[#dadce0] bg-[#f8f9fa] p-5 sm:p-6">
+                <label className="block text-sm font-bold">Ответ</label>
+                {currentTask.answerType.startsWith("PAIR_LIST") ? (
+                  <textarea
+                    rows={4}
+                    value={answers[currentTask.id] ?? ""}
+                    onChange={(event) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [currentTask.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={answerPlaceholder(currentTask.answerType)}
+                    className="mt-2 w-full rounded-sm border border-[#9aa0a6] bg-white px-3 py-3 font-mono text-sm outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
+                  />
+                ) : (
+                  <input
+                    value={answers[currentTask.id] ?? ""}
+                    onChange={(event) =>
+                      setAnswers((current) => ({
+                        ...current,
+                        [currentTask.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={answerPlaceholder(currentTask.answerType)}
+                    className="mt-2 w-full rounded-sm border border-[#9aa0a6] bg-white px-3 py-3 font-mono text-sm outline-none focus:border-[#1a73e8] focus:ring-1 focus:ring-[#1a73e8]"
+                  />
+                )}
+              </div>
             </div>
-          </div>
 
-          {error ? (
-            <div className="mx-auto mt-4 max-w-5xl rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
+            {error ? (
+              <div className="mx-auto mt-4 max-w-5xl rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            ) : null}
 
-          <div className="mx-auto mt-4 flex max-w-5xl flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              disabled={currentIndex === 0}
-              onClick={() => setCurrentIndex((index) => index - 1)}
-              className="rounded-md border border-[#bdc1c6] bg-white px-5 py-2.5 text-sm font-bold disabled:opacity-40"
-            >
-              ← Назад
-            </button>
-
-            <div className="flex gap-3">
-              {currentIndex < tasks.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={() => setCurrentIndex((index) => index + 1)}
-                  className="rounded-md bg-[#1a73e8] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1765cc]"
-                >
-                  Следующее →
-                </button>
-              ) : null}
+            <div className="mx-auto mt-4 flex max-w-5xl flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => void submitAttempt()}
-                disabled={isSubmitting}
-                className="rounded-md bg-[#188038] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#137333] disabled:opacity-60"
+                disabled={currentIndex === 0}
+                onClick={() => setCurrentIndex((index) => index - 1)}
+                className="rounded-md border border-[#bdc1c6] bg-white px-5 py-2.5 text-sm font-bold disabled:opacity-40"
               >
-                {isSubmitting ? "Проверка…" : "Завершить работу"}
+                ← Назад
               </button>
+
+              <div className="flex gap-3">
+                {currentIndex < tasks.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCurrentIndex((index) => index + 1)}
+                    className="rounded-md bg-[#1a73e8] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1765cc]"
+                  >
+                    Следующее →
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void submitAttempt()}
+                  disabled={isSubmitting}
+                  className="rounded-md bg-[#188038] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#137333] disabled:opacity-60"
+                >
+                  {isSubmitting ? "Проверка…" : "Завершить работу"}
+                </button>
+              </div>
             </div>
-          </div>
+          </TaskDrawingLayer>
         </section>
       </div>
     </main>

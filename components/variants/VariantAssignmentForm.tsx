@@ -28,6 +28,7 @@ export function VariantAssignmentForm({
   const [message, setMessage] = useState("");
 
   const assigned = useMemo(() => new Set(assignedStudentIds), [assignedStudentIds]);
+  const selectedAssignedCount = selectedIds.filter((id) => assigned.has(id)).length;
   const visibleStudents = students.filter((student) =>
     `${student.name} ${student.email}`.toLowerCase().includes(query.toLowerCase())
   );
@@ -90,10 +91,16 @@ export function VariantAssignmentForm({
         </div>
         <button
           type="button"
-          onClick={() => setSelectedIds(visibleStudents.map((student) => student.id))}
+          onClick={() =>
+            setSelectedIds(
+              visibleStudents
+                .filter((student) => !assigned.has(student.id))
+                .map((student) => student.id)
+            )
+          }
           className="text-sm font-bold text-cyan-700"
         >
-          Выбрать всех
+          Выбрать ещё не выданных
         </button>
       </div>
 
@@ -141,9 +148,17 @@ export function VariantAssignmentForm({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm font-medium text-slate-600">
-          Выбрано: {selectedIds.length}
-          {message ? <span className="ml-3 text-cyan-700">{message}</span> : null}
+        <div className="text-sm font-medium text-slate-600" aria-live="polite">
+          <div>
+            Выбрано: {selectedIds.length}
+            {message ? <span className="ml-3 text-cyan-700">{message}</span> : null}
+          </div>
+          {selectedAssignedCount > 0 ? (
+            <div className="mt-1 text-xs font-bold text-amber-700">
+              Повторно выдаётся: {selectedAssignedCount}. Для этих учеников
+              выполнение начнётся заново.
+            </div>
+          ) : null}
         </div>
         <button
           type="submit"

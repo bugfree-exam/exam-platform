@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { TaskDrawingLayer } from "@/components/variants/TaskDrawingLayer";
+
 type ExamTask = {
   id: string;
   order: number;
@@ -313,34 +315,36 @@ export function ExamStationSolver({
               </div>
             </div>
 
-            <article className="min-h-[440px] p-5 sm:p-8">
-              <h1 className="text-lg font-bold">{currentTask.title}</h1>
-              <div
-                className="prose prose-slate mt-5 max-w-none break-words text-[15px] leading-7 [&_img]:h-auto [&_img]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
-                dangerouslySetInnerHTML={{
-                  __html: currentTask.statementHtml,
-                }}
-              />
+            <TaskDrawingLayer attemptId={attemptId} taskId={currentTask.id}>
+              <article className="min-h-[440px] p-5 sm:p-8">
+                <h1 className="text-lg font-bold">{currentTask.title}</h1>
+                <div
+                  className="prose prose-slate mt-5 max-w-none break-words text-[15px] leading-7 [&_img]:h-auto [&_img]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+                  dangerouslySetInnerHTML={{
+                    __html: currentTask.statementHtml,
+                  }}
+                />
 
-              {currentTask.attachments.length > 0 ? (
-                <div className="mt-6 border-t border-[#dadce0] pt-5">
-                  <div className="text-sm font-bold">Файлы к заданию</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {currentTask.attachments.map((attachment) => (
-                      <a
-                        key={attachment.id}
-                        href={`/api/task-attachments/${attachment.id}/download`}
-                        download
-                        className="rounded-md border border-[#bdc1c6] bg-[#f8f9fa] px-4 py-2 text-sm font-bold text-[#1967d2] hover:bg-[#e8f0fe]"
-                      >
-                        ↓ {attachment.originalName} ·{" "}
-                        {formatFileSize(attachment.sizeBytes)}
-                      </a>
-                    ))}
+                {currentTask.attachments.length > 0 ? (
+                  <div className="mt-6 border-t border-[#dadce0] pt-5">
+                    <div className="text-sm font-bold">Файлы к заданию</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {currentTask.attachments.map((attachment) => (
+                        <a
+                          key={attachment.id}
+                          href={`/api/task-attachments/${attachment.id}/download`}
+                          download
+                          className="rounded-md border border-[#bdc1c6] bg-[#f8f9fa] px-4 py-2 text-sm font-bold text-[#1967d2] hover:bg-[#e8f0fe]"
+                        >
+                          ↓ {attachment.originalName} ·{" "}
+                          {formatFileSize(attachment.sizeBytes)}
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </article>
+                ) : null}
+              </article>
+            </TaskDrawingLayer>
 
             <div className="border-t border-[#dadce0] bg-[#f8f9fa] p-5 sm:p-6">
               <label className="block text-sm font-bold">Ответ</label>

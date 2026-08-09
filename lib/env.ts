@@ -7,12 +7,13 @@ const booleanFromString = z
   .default("false")
   .transform((value) => value === "true");
 
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().optional()
+);
+
 const envSchema = z
   .object({
-    /*
-     * Не используем NODE_ENV как признак реального VPS:
-     * next build всегда работает в production-режиме.
-     */
     APP_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
@@ -29,9 +30,6 @@ const envSchema = z
         "DATABASE_URL должен быть PostgreSQL-подключением"
       ),
 
-    /*
-     * openssl rand -base64 48 даст секрет достаточной длины.
-     */
     JWT_SECRET: z
       .string()
       .min(48, "JWT_SECRET должен содержать минимум 48 символов"),
@@ -49,12 +47,14 @@ const envSchema = z
       .default(14),
 
     COOKIE_SECURE: booleanFromString,
-
-    /*
-     * Локально это public/uploads.
-     * На VPS позже укажем постоянную директорию.
-     */
     UPLOAD_DIR: z.string().min(1).default("./public/uploads"),
+
+    ONBOARDING_VIDEO_URL: optionalUrl,
+
+    TELEGRAM_BOT_TOKEN: z.string().min(20).optional(),
+    TELEGRAM_BOT_USERNAME: z.string().min(1).optional(),
+    TELEGRAM_WEBHOOK_SECRET: z.string().min(24).optional(),
+    REMINDER_CRON_SECRET: z.string().min(32).optional(),
   })
   .superRefine((value, context) => {
     if (
@@ -82,6 +82,23 @@ const envSchema = z
         path: ["COOKIE_SECURE"],
         message:
           "COOKIE_SECURE=true можно использовать только вместе с HTTPS",
+      });
+    }
+
+    const telegramValues = [
+      value.TELEGRAM_BOT_TOKEN,
+      value.TELEGRAM_BOT_USERNAME,
+      value.TELEGRAM_WEBHOOK_SECRET,
+      value.REMINDER_CRON_SECRET,
+    ];
+    const telegramConfigured = telegramValues.filter(Boolean).length;
+
+    if (telegramConfigured > 0 && telegramConfigured < telegramValues.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["TELEGRAM_BOT_TOKEN"],
+        message:
+          "Для Telegram нужно задать TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_WEBHOOK_SECRET и REMINDER_CRON_SECRET одновременно",
       });
     }
   });

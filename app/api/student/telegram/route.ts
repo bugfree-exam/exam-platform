@@ -72,6 +72,33 @@ export async function POST() {
   });
 }
 
+export async function PATCH() {
+  const auth = await requireApiRole(UserRole.STUDENT);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: auth.user.id },
+    select: { telegramChatId: true },
+  });
+
+  if (!user?.telegramChatId) {
+    return NextResponse.json(
+      { message: "Сначала подключите Telegram" },
+      { status: 400 }
+    );
+  }
+
+  await prisma.user.update({
+    where: { id: auth.user.id },
+    data: { telegramNotificationsEnabled: true },
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE() {
   const auth = await requireApiRole(UserRole.STUDENT);
 

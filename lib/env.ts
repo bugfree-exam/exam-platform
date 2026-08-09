@@ -12,6 +12,12 @@ const optionalUrl = z.preprocess(
   z.string().url().optional()
 );
 
+const optionalString = (min: number) =>
+  z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(min).optional()
+  );
+
 const envSchema = z
   .object({
     APP_ENV: z
@@ -51,10 +57,10 @@ const envSchema = z
 
     ONBOARDING_VIDEO_URL: optionalUrl,
 
-    TELEGRAM_BOT_TOKEN: z.string().min(20).optional(),
-    TELEGRAM_BOT_USERNAME: z.string().min(1).optional(),
-    TELEGRAM_WEBHOOK_SECRET: z.string().min(24).optional(),
-    REMINDER_CRON_SECRET: z.string().min(32).optional(),
+    TELEGRAM_BOT_TOKEN: optionalString(20),
+    TELEGRAM_BOT_USERNAME: optionalString(1),
+    TELEGRAM_WEBHOOK_SECRET: optionalString(24),
+    REMINDER_CRON_SECRET: optionalString(32),
   })
   .superRefine((value, context) => {
     if (

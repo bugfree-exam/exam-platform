@@ -70,6 +70,8 @@ services:
       UPLOAD_DIR: /app/public/uploads
       TASK_FILES_DIR: /app/storage/task-files
 
+      ONBOARDING_VIDEO_URL: ${ONBOARDING_VIDEO_URL:-}
+
       TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}

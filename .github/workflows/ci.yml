@@ -3,12 +3,10 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [agent/telegram-homework-reminders]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -30,8 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,18 +37,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Apply audit lock fix
-        if: github.event_name == 'push'
-        run: |
-          npm audit fix --omit=dev --package-lock-only
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "Update audited dependency lock"
-            git push
-          fi
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

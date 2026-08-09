@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      APP_ENV: test
+      APP_URL: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/exam_platform
+      JWT_SECRET: ci_only_secret_ci_only_secret_ci_only_secret_ci_only_secret_123456
+      SESSION_COOKIE_NAME: exam_without_bugs_session
+      SESSION_TTL_DAYS: 14
+      COOKIE_SECURE: "false"
+      UPLOAD_DIR: ./public/uploads
+      TASK_FILES_DIR: ./storage/task-files
+      TELEGRAM_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const ACTIVITY_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
+
 export async function requireApiUser() {
   const user = await getCurrentUser();
 
@@ -72,12 +74,19 @@ export async function requireStudentPage() {
     redirect("/teacher");
   }
 
-  await prisma.user.update({
+  const now = new Date();
+  const activityThreshold = new Date(now.getTime() - ACTIVITY_UPDATE_INTERVAL_MS);
+
+  await prisma.user.updateMany({
     where: {
       id: user.id,
+      OR: [
+        { lastActivityAt: null },
+        { lastActivityAt: { lt: activityThreshold } },
+      ],
     },
     data: {
-      lastActivityAt: new Date(),
+      lastActivityAt: now,
     },
   });
 

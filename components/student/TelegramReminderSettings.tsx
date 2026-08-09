@@ -73,6 +73,34 @@ export function TelegramReminderSettings() {
     }
   }
 
+  async function enableNotifications() {
+    setIsPending(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/student/telegram", {
+        method: "PATCH",
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as
+          | { message?: string }
+          | null;
+        throw new Error(data?.message || "Не удалось включить напоминания");
+      }
+
+      await loadStatus();
+    } catch (enableError) {
+      setError(
+        enableError instanceof Error
+          ? enableError.message
+          : "Не удалось включить напоминания"
+      );
+    } finally {
+      setIsPending(false);
+    }
+  }
+
   async function disconnect() {
     setIsPending(true);
     setError("");
@@ -139,14 +167,26 @@ export function TelegramReminderSettings() {
             </p>
           </div>
 
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={() => void disconnect()}
-            className="rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-900 transition hover:border-emerald-500 disabled:opacity-60"
-          >
-            {isPending ? "Отключаю…" : "Отключить"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {!status.notificationsEnabled ? (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => void enableNotifications()}
+                className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+              >
+                {isPending ? "Включаю…" : "Включить"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => void disconnect()}
+              className="rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-bold text-emerald-900 transition hover:border-emerald-500 disabled:opacity-60"
+            >
+              {isPending ? "Обновляю…" : "Отключить"}
+            </button>
+          </div>
         </div>
 
         {error ? (

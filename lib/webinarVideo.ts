@@ -18,6 +18,31 @@ export function getRutubeEmbedUrl(url: string) {
   return value;
 }
 
+export function getGenericVideoEmbedUrl(url: string) {
+  const value = url.trim();
+
+  if (value.includes("rutube.ru/")) {
+    return getRutubeEmbedUrl(value);
+  }
+
+  const youtubeWatch = value.match(/[?&]v=([a-zA-Z0-9_-]{6,})/);
+  if (youtubeWatch?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeWatch[1]}`;
+  }
+
+  const youtubeShort = value.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
+  if (youtubeShort?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeShort[1]}`;
+  }
+
+  const youtubeEmbed = value.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/);
+  if (youtubeEmbed?.[1]) {
+    return `https://www.youtube.com/embed/${youtubeEmbed[1]}`;
+  }
+
+  return value;
+}
+
 export function getWebinarEmbedUrl({
   provider,
   videoUrl,

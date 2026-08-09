@@ -10,39 +10,55 @@ type TelegramStatus = {
   notificationsEnabled: boolean;
 };
 
+async function fetchTelegramStatus() {
+  const response = await fetch("/api/student/telegram", {
+    cache: "no-store",
+  });
+  const data = (await response.json().catch(() => null)) as
+    | TelegramStatus
+    | { message?: string }
+    | null;
+
+  if (!response.ok || !data || !("available" in data)) {
+    throw new Error(
+      data && "message" in data && data.message
+        ? data.message
+        : "Не удалось проверить Telegram"
+    );
+  }
+
+  return data;
+}
+
 export function TelegramReminderSettings() {
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
 
   async function loadStatus() {
-    const response = await fetch("/api/student/telegram", {
-      cache: "no-store",
-    });
-    const data = (await response.json().catch(() => null)) as
-      | TelegramStatus
-      | { message?: string }
-      | null;
-
-    if (!response.ok || !data || !("available" in data)) {
-      throw new Error(
-        data && "message" in data && data.message
-          ? data.message
-          : "Не удалось проверить Telegram"
-      );
-    }
-
-    setStatus(data);
+    const nextStatus = await fetchTelegramStatus();
+    setStatus(nextStatus);
   }
 
   useEffect(() => {
-    void loadStatus().catch((loadError) => {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Не удалось проверить Telegram"
-      );
-    });
+    let active = true;
+
+    void fetchTelegramStatus()
+      .then((nextStatus) => {
+        if (active) setStatus(nextStatus);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Не удалось проверить Telegram"
+        );
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function connect() {

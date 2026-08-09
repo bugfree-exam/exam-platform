@@ -70,6 +70,12 @@ services:
       UPLOAD_DIR: /app/public/uploads
       TASK_FILES_DIR: /app/storage/task-files
 
+      TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      REMINDER_CRON_SECRET: ${REMINDER_CRON_SECRET:-}
+
     volumes:
       - ./storage/uploads:/app/public/uploads
       - ./storage/task-files:/app/storage/task-files

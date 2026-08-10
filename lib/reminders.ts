@@ -260,7 +260,12 @@ export async function processStudentReminders() {
           resourceLabel: "Домашнее задание",
         }),
       });
-      result === "sent" ? (sent += 1) : (skipped += 1);
+
+      if (result === "sent") {
+        sent += 1;
+      } else {
+        skipped += 1;
+      }
     } catch (error) {
       errors.push(
         `homework:${assignment.homework.id}:${assignment.studentId}:${String(error)}`
@@ -305,7 +310,12 @@ export async function processStudentReminders() {
           resourceLabel: "Вариант",
         }),
       });
-      result === "sent" ? (sent += 1) : (skipped += 1);
+
+      if (result === "sent") {
+        sent += 1;
+      } else {
+        skipped += 1;
+      }
     } catch (error) {
       errors.push(
         `variant:${assignment.variant.id}:${assignment.studentId}:${String(error)}`

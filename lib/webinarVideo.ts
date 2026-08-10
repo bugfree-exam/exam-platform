@@ -1,71 +1,61 @@
 export type WebinarVideoProviderValue = "RUTUBE" | "YANDEX_DISK" | "EXTERNAL";
 
-function buildRutubeEmbedUrl(videoId: string, accessKey?: string | null) {
-  const baseUrl = `https://rutube.ru/play/embed/${videoId}`;
-
-  if (!accessKey) {
-    return baseUrl;
-  }
-
-  return `${baseUrl}/?p=${encodeURIComponent(accessKey)}`;
-}
-
 export function getRutubeEmbedUrl(url: string) {
   const value = url.trim();
 
   try {
     const parsedUrl = new URL(value);
-    const hostname = parsedUrl.hostname.replace(/^www\./, "");
 
-    if (hostname !== "rutube.ru") {
+    if (
+      parsedUrl.hostname !== "rutube.ru" &&
+      parsedUrl.hostname !== "www.rutube.ru"
+    ) {
       return value;
     }
 
-    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
-    const accessKey = parsedUrl.searchParams.get("p");
+    // Уже готовая embed-ссылка
+    const embedMatch = parsedUrl.pathname.match(
+      /^\/play\/embed\/([a-zA-Z0-9-]+)\/?$/
+    );
 
-    if (pathParts[0] === "play" && pathParts[1] === "embed" && pathParts[2]) {
-      return buildRutubeEmbedUrl(pathParts[2], accessKey);
+    if (embedMatch?.[1]) {
+      const accessKey = parsedUrl.searchParams.get("p");
+
+      return accessKey
+        ? `https://rutube.ru/play/embed/${embedMatch[1]}/?p=${encodeURIComponent(
+            accessKey
+          )}`
+        : `https://rutube.ru/play/embed/${embedMatch[1]}`;
     }
 
-    if (pathParts[0] === "video") {
-      if (pathParts[1] === "private" && pathParts[2]) {
-        return buildRutubeEmbedUrl(pathParts[2], accessKey);
-      }
+    // Приватное видео
+    const privateVideoMatch = parsedUrl.pathname.match(
+      /^\/video\/private\/([a-zA-Z0-9-]+)\/?$/
+    );
 
-      if (pathParts[1]) {
-        return buildRutubeEmbedUrl(pathParts[1], accessKey);
-      }
+    if (privateVideoMatch?.[1]) {
+      const accessKey = parsedUrl.searchParams.get("p");
+
+      return accessKey
+        ? `https://rutube.ru/play/embed/${
+            privateVideoMatch[1]
+          }/?p=${encodeURIComponent(accessKey)}`
+        : `https://rutube.ru/play/embed/${privateVideoMatch[1]}`;
     }
+
+    // Обычное публичное видео
+    const videoMatch = parsedUrl.pathname.match(
+      /^\/video\/([a-zA-Z0-9-]+)\/?$/
+    );
+
+    if (videoMatch?.[1]) {
+      return `https://rutube.ru/play/embed/${videoMatch[1]}`;
+    }
+
+    return value;
   } catch {
-    // Ниже оставлен fallback для неполных/нестандартных ссылок.
+    return value;
   }
-
-  const privateVideoMatch = value.match(
-    /rutube\.ru\/video\/private\/([a-zA-Z0-9-]+)/
-  );
-  const accessKeyMatch = value.match(/[?&]p=([^&#]+)/);
-  const accessKey = accessKeyMatch?.[1]
-    ? decodeURIComponent(accessKeyMatch[1])
-    : null;
-
-  if (privateVideoMatch?.[1]) {
-    return buildRutubeEmbedUrl(privateVideoMatch[1], accessKey);
-  }
-
-  const embedMatch = value.match(/rutube\.ru\/play\/embed\/([a-zA-Z0-9-]+)/);
-
-  if (embedMatch?.[1]) {
-    return buildRutubeEmbedUrl(embedMatch[1], accessKey);
-  }
-
-  const videoMatch = value.match(/rutube\.ru\/video\/([a-zA-Z0-9-]+)/);
-
-  if (videoMatch?.[1]) {
-    return buildRutubeEmbedUrl(videoMatch[1], accessKey);
-  }
-
-  return value;
 }
 
 export function getGenericVideoEmbedUrl(url: string) {

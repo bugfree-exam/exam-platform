@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule Exam Platform weekly restore verification
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=600
+Unit=exam-platform-restore-test.service
+
+[Install]
+WantedBy=timers.target

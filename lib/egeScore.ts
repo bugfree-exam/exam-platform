@@ -7,7 +7,7 @@ const EGE_TEST_SCORE_BY_PRIMARY = [
 export const MAX_EGE_PRIMARY_SCORE = 29;
 export const MAX_EGE_TEST_SCORE = 100;
 
-export function primaryToEgeTestScore(primaryScore: number) {
+export function primaryToEgeTestScore(primaryScore: number): number {
   const normalizedScore = Math.min(
     MAX_EGE_PRIMARY_SCORE,
     Math.max(0, Math.round(primaryScore))

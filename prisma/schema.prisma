@@ -37,6 +37,22 @@ enum AttemptStatus {
   SUBMITTED
 }
 
+enum ReminderChannel {
+  TELEGRAM
+}
+
+enum ReminderKind {
+  HOMEWORK_DUE_SOON
+  HOMEWORK_OVERDUE
+  VARIANT_DUE_SOON
+  VARIANT_OVERDUE
+}
+
+enum ReminderResourceType {
+  HOMEWORK
+  VARIANT
+}
+
 enum VariantStatus {
   DRAFT
   PUBLISHED
@@ -74,11 +90,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedHomeworks  HomeworkAssignment[]
-  attempts           Attempt[]
-  practiceAttempts   PracticeAttempt[]
-  variantAttempts    VariantAttempt[]
-  variantAssignments VariantAssignment[]
+  assignedHomeworks   HomeworkAssignment[]
+  attempts            Attempt[]
+  practiceAttempts    PracticeAttempt[]
+  variantAttempts     VariantAttempt[]
+  variantAssignments  VariantAssignment[]
+  reminderDeliveries  ReminderDelivery[]
 
   lastActivityAt DateTime?
 
@@ -87,6 +104,13 @@ model User {
   frozenAt           DateTime?
   archivedAt         DateTime?
   sessionVersion     Int                  @default(0)
+
+  telegramChatId               String?   @unique
+  telegramUsername             String?
+  telegramLinkedAt             DateTime?
+  telegramNotificationsEnabled Boolean   @default(false)
+  telegramLinkTokenHash        String?   @unique
+  telegramLinkTokenExpiresAt   DateTime?
 
   @@index([role, studentStatus])
 }
@@ -280,7 +304,7 @@ model VariantAttempt {
   maxScore Int   @default(0)
   percent  Float @default(0)
 
-  timerEnabled Boolean   @default(true)
+  timerEnabled Boolean  @default(true)
   startedAt    DateTime  @default(now())
   submittedAt  DateTime?
 
@@ -294,11 +318,11 @@ model VariantAttempt {
 }
 
 model VariantAssignment {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   variantId  String
   studentId  String
   deadline   DateTime?
-  assignedAt DateTime  @default(now())
+  assignedAt DateTime @default(now())
 
   variant ExamVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   student User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -324,6 +348,23 @@ model VariantAttemptAnswer {
   @@unique([attemptId, taskId])
   @@index([attemptId])
   @@index([taskId])
+}
+
+model ReminderDelivery {
+  id           String               @id @default(cuid())
+  studentId    String
+  channel      ReminderChannel      @default(TELEGRAM)
+  kind         ReminderKind
+  resourceType ReminderResourceType
+  resourceId   String
+  deadlineAt   DateTime
+  sentAt       DateTime             @default(now())
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, channel, kind, resourceType, resourceId, deadlineAt])
+  @@index([studentId, sentAt])
+  @@index([resourceType, resourceId])
 }
 
 model Webinar {
@@ -372,8 +413,8 @@ model WebinarSchedule {
   topic        String
   announcement String?
   joinUrl      String
-  scheduledAt  DateTime
-  isPublished  Boolean  @default(true)
+  scheduledAt DateTime
+  isPublished Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -10,6 +10,10 @@ const AUTH_API_ROUTES = [
 ];
 const PUBLIC_PAGE_PREFIXES = ["/practice"];
 const PUBLIC_API_PREFIXES = ["/api/public"];
+const PUBLIC_EXACT_API_ROUTES = [
+  "/api/integrations/telegram/webhook",
+  "/api/internal/reminders/run",
+];
 
 function isAuthApiRoute(pathname: string) {
   return AUTH_API_ROUTES.some((route) =>
@@ -41,6 +45,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isAuthApiRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  if (PUBLIC_EXACT_API_ROUTES.includes(pathname)) {
     return NextResponse.next();
   }
 

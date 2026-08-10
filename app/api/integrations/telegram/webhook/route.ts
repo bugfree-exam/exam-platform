@@ -39,6 +39,20 @@ async function reply(chatId: string, text: string) {
   }
 }
 
+async function getLinkedStudent(chatId: string) {
+  return prisma.user.findFirst({
+    where: {
+      telegramChatId: chatId,
+      role: UserRole.STUDENT,
+    },
+    select: {
+      id: true,
+      name: true,
+      telegramNotificationsEnabled: true,
+    },
+  });
+}
+
 export async function POST(request: Request) {
   const config = getTelegramConfig();
 
@@ -65,8 +79,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (message?.chat?.type && message.chat.type !== "private") {
+    return NextResponse.json({ ok: true });
+  }
+
   const chatId = String(rawChatId);
   const { command, argument } = commandAndArgument(text);
+
+  if (command === "/help") {
+    await reply(
+      chatId,
+      [
+        "Я — бот платформы «Экзамен без багов».",
+        "",
+        "Я напоминаю о несданных домашних заданиях и назначенных вариантах:",
+        "• один раз, когда до дедлайна осталось меньше суток;",
+        "• ещё один раз после просрочки, если работа всё ещё не сдана.",
+        "",
+        "Команды:",
+        "/status — проверить привязку и уведомления",
+        "/stop — выключить напоминания",
+        "/help — показать эту справку",
+      ].join("\n")
+    );
+
+    return NextResponse.json({ ok: true });
+  }
+
+  if (command === "/status") {
+    const linkedStudent = await getLinkedStudent(chatId);
+
+    if (!linkedStudent) {
+      await reply(
+        chatId,
+        "Telegram пока не привязан к аккаунту платформы. Открой страницу «Напоминания в Telegram» в личном кабинете и нажми «Подключить»."
+      );
+    } else {
+      const firstName = linkedStudent.name.trim().split(/\s+/)[0] || "Ученик";
+      const notificationStatus = linkedStudent.telegramNotificationsEnabled
+        ? "включены ✅"
+        : "выключены ⏸";
+
+      await reply(
+        chatId,
+        `${firstName}, аккаунт привязан ✅\nНапоминания: ${notificationStatus}`
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  }
 
   if (command === "/stop") {
     await prisma.user.updateMany({
@@ -85,7 +146,7 @@ export async function POST(request: Request) {
   if (command !== "/start") {
     await reply(
       chatId,
-      "Я отправляю напоминания о домашних заданиях и вариантах. Для привязки открой страницу Telegram в личном кабинете и нажми «Подключить»."
+      "Я отправляю напоминания о домашних заданиях и вариантах. Напиши /help для справки или подключи аккаунт через страницу Telegram в личном кабинете."
     );
     return NextResponse.json({ ok: true });
   }
@@ -148,7 +209,7 @@ export async function POST(request: Request) {
   const firstName = user.name.trim().split(/\s+/)[0] || "Готово";
   await reply(
     chatId,
-    `${firstName}, Telegram подключён ✅\n\nЯ напомню о несданной работе за сутки до дедлайна и ещё один раз после просрочки. После сдачи напоминания по этой работе прекращаются.`
+    `${firstName}, Telegram подключён ✅\n\nЯ напомню о несданной работе за сутки до дедлайна и ещё один раз после просрочки. После сдачи напоминания по этой работе прекращаются.\n\nКоманда /status покажет состояние подключения.`
   );
 
   return NextResponse.json({ ok: true });

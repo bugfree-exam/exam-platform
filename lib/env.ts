@@ -56,6 +56,7 @@ const envSchema = z
     UPLOAD_DIR: z.string().min(1).default("./public/uploads"),
 
     ONBOARDING_VIDEO_URL: optionalUrl,
+    ONBOARDING_VIDEO_EMBED_URL: optionalUrl,
 
     TELEGRAM_BOT_TOKEN: optionalString(20),
     TELEGRAM_BOT_USERNAME: optionalString(1),

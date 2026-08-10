@@ -1,18 +1,68 @@
 export type WebinarVideoProviderValue = "RUTUBE" | "YANDEX_DISK" | "EXTERNAL";
 
+function buildRutubeEmbedUrl(videoId: string, accessKey?: string | null) {
+  const baseUrl = `https://rutube.ru/play/embed/${videoId}`;
+
+  if (!accessKey) {
+    return baseUrl;
+  }
+
+  return `${baseUrl}/?p=${encodeURIComponent(accessKey)}`;
+}
+
 export function getRutubeEmbedUrl(url: string) {
   const value = url.trim();
+
+  try {
+    const parsedUrl = new URL(value);
+    const hostname = parsedUrl.hostname.replace(/^www\./, "");
+
+    if (hostname !== "rutube.ru") {
+      return value;
+    }
+
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+    const accessKey = parsedUrl.searchParams.get("p");
+
+    if (pathParts[0] === "play" && pathParts[1] === "embed" && pathParts[2]) {
+      return buildRutubeEmbedUrl(pathParts[2], accessKey);
+    }
+
+    if (pathParts[0] === "video") {
+      if (pathParts[1] === "private" && pathParts[2]) {
+        return buildRutubeEmbedUrl(pathParts[2], accessKey);
+      }
+
+      if (pathParts[1]) {
+        return buildRutubeEmbedUrl(pathParts[1], accessKey);
+      }
+    }
+  } catch {
+    // Ниже оставлен fallback для неполных/нестандартных ссылок.
+  }
+
+  const privateVideoMatch = value.match(
+    /rutube\.ru\/video\/private\/([a-zA-Z0-9-]+)/
+  );
+  const accessKeyMatch = value.match(/[?&]p=([^&#]+)/);
+  const accessKey = accessKeyMatch?.[1]
+    ? decodeURIComponent(accessKeyMatch[1])
+    : null;
+
+  if (privateVideoMatch?.[1]) {
+    return buildRutubeEmbedUrl(privateVideoMatch[1], accessKey);
+  }
 
   const embedMatch = value.match(/rutube\.ru\/play\/embed\/([a-zA-Z0-9-]+)/);
 
   if (embedMatch?.[1]) {
-    return `https://rutube.ru/play/embed/${embedMatch[1]}`;
+    return buildRutubeEmbedUrl(embedMatch[1], accessKey);
   }
 
   const videoMatch = value.match(/rutube\.ru\/video\/([a-zA-Z0-9-]+)/);
 
   if (videoMatch?.[1]) {
-    return `https://rutube.ru/play/embed/${videoMatch[1]}`;
+    return buildRutubeEmbedUrl(videoMatch[1], accessKey);
   }
 
   return value;

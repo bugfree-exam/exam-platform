@@ -25,6 +25,9 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+body[data-telegram-enabled="false"] a[href="/student/telegram"] {
+  display: none !important;
+}
 
 .ProseMirror {
   min-height: 220px;

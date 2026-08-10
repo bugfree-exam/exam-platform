@@ -1,12 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { TelegramReminderSettings } from "@/components/student/TelegramReminderSettings";
 import { requireStudentPage } from "@/lib/access";
+import { getTelegramConfig } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentTelegramPage() {
   await requireStudentPage();
+
+  if (!getTelegramConfig().configured) {
+    redirect("/student");
+  }
 
   return (
     <main className="min-h-screen bg-[#f4f7f8] px-4 py-6 text-slate-950 sm:px-6 sm:py-8">

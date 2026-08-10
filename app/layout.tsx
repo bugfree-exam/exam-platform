@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { getTelegramConfig } from "@/lib/telegram";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,12 +30,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const telegramEnabled = getTelegramConfig().configured;
+
   return (
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body
+        className="min-h-full flex flex-col"
+        data-telegram-enabled={telegramEnabled ? "true" : "false"}
+      >
+        {children}
+      </body>
     </html>
   );
 }

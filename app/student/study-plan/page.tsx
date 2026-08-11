@@ -35,7 +35,10 @@ export default async function StudentStudyPlanPage() {
       practiceAttempts: {
         select: {
           studyPlanActionIndex: true,
+          studyPlanAttemptKind: true,
+          errorCause: true,
           isCorrect: true,
+          createdAt: true,
         },
       },
     },
@@ -90,7 +93,7 @@ export default async function StudentStudyPlanPage() {
                 <div className="rounded-2xl bg-slate-950 p-5 text-white">
                   <div className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-300">Общий прогресс</div>
                   <div className="mt-3 text-4xl font-black">{plan.progress.percent}%</div>
-                  <div className="mt-1 text-xs text-slate-400">{plan.progress.completedTasks} из {plan.progress.totalTasks} задач</div>
+                  <div className="mt-1 text-xs text-slate-400">{plan.progress.completedActions} из {plan.progress.totalActions} этапов освоено</div>
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
                     <div className="h-full rounded-full bg-cyan-300" style={{ width: `${plan.progress.percent}%` }} />
                   </div>
@@ -117,6 +120,15 @@ export default async function StudentStudyPlanPage() {
                 <div className="mt-3 space-y-3">
                   {plan.actions.map((action, actionIndex) => {
                     const progress = plan.progress.actions[actionIndex];
+                    const controlAvailable = Boolean(
+                      progress?.controlAvailableAt &&
+                        new Date(progress.controlAvailableAt) <= new Date()
+                    );
+                    const actionHref = `/student/trainer/${action.egeNumber}?plan=${plan.id}&action=${actionIndex}${
+                      progress?.accuracyMet && controlAvailable
+                        ? "&mode=control"
+                        : ""
+                    }`;
                     return (
                       <article key={`${action.day}-${action.egeNumber}-${actionIndex}`} className={`rounded-2xl border p-4 sm:p-5 ${progress?.isCompleted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -124,18 +136,34 @@ export default async function StudentStudyPlanPage() {
                             {progress?.isCompleted ? "✓" : action.day}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-black">День {action.day} · задание №{action.egeNumber}</div>
+                            <div className="font-black">День {action.day} · {action.skill}</div>
+                            <div className="mt-1 text-xs font-bold text-cyan-800">Задание №{action.egeNumber}</div>
                             <p className="mt-1 text-sm leading-6 text-slate-500">{action.goal}</p>
                             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
                               <div className={`h-full rounded-full ${progress?.isCompleted ? "bg-emerald-500" : "bg-cyan-500"}`} style={{ width: `${progress?.percent ?? 0}%` }} />
                             </div>
                             <div className="mt-1 text-xs text-slate-400">
-                              Решено {Math.min(progress?.attempted ?? 0, action.taskCount)} из {action.taskCount} · верно {progress?.correct ?? 0}
+                              Практика {Math.min(progress?.attempted ?? 0, action.taskCount)}/{action.taskCount} · точность последних задач {progress?.rollingAccuracy ?? 0}% (нужно {action.minimumAccuracy}%)
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
+                              <span className={progress?.volumeMet ? "text-emerald-700" : "text-slate-400"}>① объём</span>
+                              <span className={progress?.accuracyMet ? "text-emerald-700" : "text-slate-400"}>② точность</span>
+                              <span className={progress?.controlPassed ? "text-emerald-700" : "text-slate-400"}>③ контроль после {action.controlDelayDays} дн.</span>
                             </div>
                           </div>
-                          <Link href={`/student/trainer/${action.egeNumber}?plan=${plan.id}&action=${actionIndex}`} className={`shrink-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold ${progress?.isCompleted ? "border border-emerald-300 bg-white text-emerald-800" : "bg-cyan-700 text-white"}`}>
-                            {progress?.isCompleted ? "Потренироваться ещё" : "Начать тренировку"} →
-                          </Link>
+                          {progress?.accuracyMet && !progress.controlPassed && !controlAvailable ? (
+                            <div className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-bold text-amber-800">
+                              Контроль откроется<br />{progress.controlAvailableAt ? formatDate(progress.controlAvailableAt) : "после паузы"}
+                            </div>
+                          ) : (
+                            <Link href={actionHref} className={`shrink-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold ${progress?.isCompleted ? "border border-emerald-300 bg-white text-emerald-800" : "bg-cyan-700 text-white"}`}>
+                              {progress?.isCompleted
+                                ? "Потренироваться ещё"
+                                : progress?.accuracyMet && controlAvailable
+                                  ? "Пройти контроль"
+                                  : "Продолжить практику"} →
+                            </Link>
+                          )}
                         </div>
                       </article>
                     );
@@ -156,7 +184,7 @@ export default async function StudentStudyPlanPage() {
                   <div className="text-xs font-bold text-slate-400">{formatDate(item.confirmedAt ?? item.createdAt)}</div>
                   <h3 className="mt-2 font-black text-slate-800">{item.title}</h3>
                   <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                    <span className="text-slate-500">{item.progress.completedTasks}/{item.progress.totalTasks} задач</span>
+                    <span className="text-slate-500">{item.progress.completedActions}/{item.progress.totalActions} этапов</span>
                     <span className="font-black text-cyan-800">{item.progress.percent}%</span>
                   </div>
                 </article>

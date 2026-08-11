@@ -17,7 +17,7 @@ export async function getStudentLearningAnalytics(studentId: string) {
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              task: { select: { egeNumber: true, skillTag: true } },
             },
           },
         },
@@ -29,7 +29,8 @@ export async function getStudentLearningAnalytics(studentId: string) {
         select: {
           createdAt: true,
           isCorrect: true,
-          task: { select: { egeNumber: true } },
+          errorCause: true,
+          task: { select: { egeNumber: true, skillTag: true } },
         },
       }),
       prisma.variantAttempt.findMany({
@@ -42,7 +43,7 @@ export async function getStudentLearningAnalytics(studentId: string) {
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              task: { select: { egeNumber: true, skillTag: true } },
             },
           },
         },
@@ -56,6 +57,7 @@ export async function getStudentLearningAnalytics(studentId: string) {
     for (const answer of attempt.answers) {
       answers.push({
         egeNumber: answer.task.egeNumber,
+        skillTag: answer.task.skillTag,
         isCorrect: answer.isCorrect,
         attemptedAt: attempt.submittedAt,
         source: "HOMEWORK",
@@ -66,6 +68,8 @@ export async function getStudentLearningAnalytics(studentId: string) {
   for (const attempt of practiceAttempts) {
     answers.push({
       egeNumber: attempt.task.egeNumber,
+      skillTag: attempt.task.skillTag,
+      errorCause: attempt.errorCause,
       isCorrect: attempt.isCorrect,
       attemptedAt: attempt.createdAt,
       source: "PRACTICE",
@@ -77,6 +81,7 @@ export async function getStudentLearningAnalytics(studentId: string) {
     for (const answer of attempt.answers) {
       answers.push({
         egeNumber: answer.task.egeNumber,
+        skillTag: answer.task.skillTag,
         isCorrect: answer.isCorrect,
         attemptedAt: attempt.submittedAt,
         source: "VARIANT",

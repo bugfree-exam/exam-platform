@@ -1,9 +1,10 @@
-import { Prisma, UserRole } from "@prisma/client";
+import { Prisma, StudyPlanAttemptKind, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { studyPlanSchema } from "@/lib/ai/planSchema";
+import { calculateStudyPlanProgress } from "@/lib/ai/studyPlanProgress";
 import { checkAnswer } from "@/lib/checkAnswer";
 import { prisma } from "@/lib/prisma";
 
@@ -14,6 +15,7 @@ const attemptSchema = z
     answer: z.string().max(10_000),
     studyPlanId: z.string().min(1).optional(),
     studyPlanActionIndex: z.number().int().min(0).optional(),
+    studyPlanAttemptKind: z.nativeEnum(StudyPlanAttemptKind).optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -21,6 +23,12 @@ const attemptSchema = z
       context.addIssue({
         code: "custom",
         message: "Контекст учебного плана указан не полностью",
+      });
+    }
+    if (value.studyPlanAttemptKind !== undefined && value.studyPlanId === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Тип попытки можно указать только для учебного плана",
       });
     }
   });
@@ -58,6 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
       select: {
         id: true,
         egeNumber: true,
+        skillTag: true,
         answerType: true,
         correctAnswer: true,
         explanationHtml: true,
@@ -72,7 +81,11 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     let studyPlanLink:
-      | { studyPlanId: string; studyPlanActionIndex: number }
+      | {
+          studyPlanId: string;
+          studyPlanActionIndex: number;
+          studyPlanAttemptKind: StudyPlanAttemptKind;
+        }
       | undefined;
 
     if (
@@ -91,6 +104,15 @@ export async function POST(request: Request, context: RouteContext) {
           durationDays: true,
           topics: true,
           actions: true,
+          practiceAttempts: {
+            select: {
+              studyPlanActionIndex: true,
+              studyPlanAttemptKind: true,
+              errorCause: true,
+              isCorrect: true,
+              createdAt: true,
+            },
+          },
         },
       });
 
@@ -117,9 +139,44 @@ export async function POST(request: Request, context: RouteContext) {
         );
       }
 
+      const matchingSkillTasks = await prisma.task.count({
+        where: {
+          egeNumber: planAction.egeNumber,
+          skillTag: planAction.skill,
+          isArchived: false,
+        },
+      });
+      if (matchingSkillTasks > 0 && task.skillTag !== planAction.skill) {
+        return NextResponse.json(
+          { message: "Задание не проверяет навык выбранного этапа" },
+          { status: 400 }
+        );
+      }
+
+      const attemptKind =
+        parsed.data.studyPlanAttemptKind ?? StudyPlanAttemptKind.PRACTICE;
+
+      if (attemptKind === StudyPlanAttemptKind.CONTROL) {
+        const actionProgress = calculateStudyPlanProgress(
+          validatedPlan,
+          studyPlan.practiceAttempts
+        ).actions[parsed.data.studyPlanActionIndex];
+        const availableAt = actionProgress?.controlAvailableAt
+          ? new Date(actionProgress.controlAvailableAt)
+          : null;
+
+        if (!actionProgress?.accuracyMet || !availableAt || availableAt > new Date()) {
+          return NextResponse.json(
+            { message: "Контрольная задача ещё не доступна: сначала выполните практику с нужной точностью и дождитесь паузы" },
+            { status: 409 }
+          );
+        }
+      }
+
       studyPlanLink = {
         studyPlanId: studyPlan.id,
         studyPlanActionIndex: parsed.data.studyPlanActionIndex,
+        studyPlanAttemptKind: attemptKind,
       };
     }
 
@@ -173,7 +230,10 @@ export async function POST(request: Request, context: RouteContext) {
           correctAnswer: task.correctAnswer,
           explanationHtml: task.explanationHtml,
         },
-        nextTaskId: nextTask?.id ?? null,
+        nextTaskId:
+          studyPlanLink?.studyPlanAttemptKind === StudyPlanAttemptKind.CONTROL
+            ? null
+            : nextTask?.id ?? null,
       },
       {
         headers: {

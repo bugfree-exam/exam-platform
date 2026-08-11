@@ -146,7 +146,10 @@ export default async function StudentPage() {
         practiceAttempts: {
           select: {
             studyPlanActionIndex: true,
+            studyPlanAttemptKind: true,
+            errorCause: true,
             isCorrect: true,
+            createdAt: true,
           },
         },
       },

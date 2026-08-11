@@ -27,6 +27,7 @@ type TaskFormInitialData = {
   videoUrl: string;
   source: string;
   difficulty: number | null;
+  skillTag: string;
   isPublic: boolean;
   attachments: TaskAttachmentItem[];
 };
@@ -74,6 +75,7 @@ const DEFAULT_DATA: TaskFormInitialData = {
   videoUrl: "",
   source: "",
   difficulty: null,
+  skillTag: "",
   isPublic: true,
   attachments: [],
 };
@@ -172,6 +174,7 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
   const [videoUrl, setVideoUrl] = useState(data.videoUrl);
   const [source, setSource] = useState(data.source);
   const [difficulty, setDifficulty] = useState<number | null>(data.difficulty);
+  const [skillTag, setSkillTag] = useState(data.skillTag);
   const [isPublic, setIsPublic] = useState(data.isPublic);
 
   const [attachments, setAttachments] = useState<TaskAttachmentItem[]>(
@@ -319,6 +322,7 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
           videoUrl,
           source,
           difficulty,
+          skillTag,
           isPublic,
         }),
       });
@@ -416,6 +420,22 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
             placeholder="Например: Задание 5. Исполнитель"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">
+          Проверяемый навык
+        </label>
+        <input
+          value={skillTag}
+          onChange={(event) => setSkillTag(event.target.value)}
+          maxLength={120}
+          className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10"
+          placeholder="Например: восстановление таблицы истинности по фрагменту"
+        />
+        <p className="mt-1.5 text-xs leading-5 text-slate-500">
+          Необязательно, но помогает AI различать разные причины ошибок внутри одного номера ЕГЭ.
+        </p>
       </div>
 
       <div>

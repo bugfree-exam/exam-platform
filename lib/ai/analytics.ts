@@ -4,6 +4,7 @@ import {
   type MasteryCategory,
   type StudentLearningAnalytics,
 } from "./types";
+import type { LearningErrorCauseValue } from "./errorCauses";
 
 function percent(correct: number, total: number) {
   return total === 0 ? 0 : Math.round((correct / total) * 100);
@@ -92,6 +93,21 @@ export function analyzeStudentLearning(
       }
 
       const accuracy = percent(correct, answers.length);
+      const skills = new Map<string, typeof answers>();
+      const errorCauses: Partial<Record<LearningErrorCauseValue, number>> = {};
+
+      for (const answer of answers) {
+        const skill = answer.skillTag?.trim();
+        if (skill) {
+          const skillAnswers = skills.get(skill) ?? [];
+          skillAnswers.push(answer);
+          skills.set(skill, skillAnswers);
+        }
+        if (!answer.isCorrect && answer.errorCause) {
+          errorCauses[answer.errorCause] = (errorCauses[answer.errorCause] ?? 0) + 1;
+        }
+      }
+
       return {
         egeNumber,
         totalAttempts: answers.length,
@@ -103,6 +119,19 @@ export function analyzeStudentLearning(
         previousAccuracy,
         trend,
         currentErrorStreak,
+        skillBreakdown: Array.from(skills.entries())
+          .map(([skill, skillAnswers]) => ({
+            skill,
+            attempts: skillAnswers.length,
+            accuracy: percent(
+              skillAnswers.filter((answer) => answer.isCorrect).length,
+              skillAnswers.length
+            ),
+          }))
+          .sort((first, second) =>
+            first.accuracy - second.accuracy || first.skill.localeCompare(second.skill)
+          ),
+        errorCauses,
         category: classifyTopic({
           total: answers.length,
           overallAccuracy: accuracy,

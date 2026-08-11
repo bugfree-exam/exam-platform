@@ -2,6 +2,8 @@ export type AttemptSource = "HOMEWORK" | "PRACTICE" | "VARIANT";
 
 export type LearningAnswer = {
   egeNumber: number;
+  skillTag?: string | null;
+  errorCause?: import("./errorCauses").LearningErrorCauseValue | null;
   isCorrect: boolean;
   attemptedAt: Date;
   source: AttemptSource;
@@ -36,6 +38,14 @@ export type TopicLearningAnalytics = {
   previousAccuracy: number | null;
   trend: number | null;
   currentErrorStreak: number;
+  skillBreakdown: Array<{
+    skill: string;
+    attempts: number;
+    accuracy: number;
+  }>;
+  errorCauses: Partial<
+    Record<import("./errorCauses").LearningErrorCauseValue, number>
+  >;
   category: MasteryCategory;
 };
 

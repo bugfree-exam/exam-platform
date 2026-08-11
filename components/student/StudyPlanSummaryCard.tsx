@@ -7,6 +7,17 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
     (_action, index) => !plan.progress.actions[index]?.isCompleted
   );
   const nextActionIndex = nextAction ? plan.actions.indexOf(nextAction) : -1;
+  const nextProgress =
+    nextActionIndex >= 0 ? plan.progress.actions[nextActionIndex] : undefined;
+  const controlAvailable = Boolean(
+    nextProgress?.controlAvailableAt &&
+      new Date(nextProgress.controlAvailableAt) <= new Date()
+  );
+  const nextHref = nextAction
+    ? `/student/trainer/${nextAction.egeNumber}?plan=${plan.id}&action=${nextActionIndex}${
+        nextProgress?.accuracyMet && controlAvailable ? "&mode=control" : ""
+      }`
+    : "";
 
   return (
     <section className="mt-5 overflow-hidden rounded-[30px] border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-violet-50 p-5 shadow-sm sm:p-6">
@@ -25,16 +36,24 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             {nextAction
-              ? `Следующий шаг: задание №${nextAction.egeNumber} — ${nextAction.goal}`
+              ? `Следующий шаг: ${nextAction.skill} — ${
+                  nextProgress?.accuracyMet
+                    ? controlAvailable
+                      ? "контрольная задача"
+                      : "пауза перед контрольной"
+                    : nextAction.goal
+                }`
               : "План выполнен. Отличная работа — результаты уже доступны учителю."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {nextAction ? (
               <Link
-                href={`/student/trainer/${nextAction.egeNumber}?plan=${plan.id}&action=${nextActionIndex}`}
+                href={nextHref}
                 className="rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-cyan-800"
               >
-                Начать тренировку →
+                {nextProgress?.accuracyMet && controlAvailable
+                  ? "Пройти контроль →"
+                  : "Продолжить этап →"}
               </Link>
             ) : null}
             <Link
@@ -53,7 +72,7 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
               <div className="mt-1 text-xs text-slate-400">выполнено</div>
             </div>
             <div className="text-right text-sm font-bold text-cyan-200">
-              {plan.progress.completedTasks}/{plan.progress.totalTasks}
+              {plan.progress.completedActions}/{plan.progress.totalActions} этапов
             </div>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">

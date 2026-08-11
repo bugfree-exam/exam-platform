@@ -70,6 +70,7 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
               videoUrl: task.videoUrl ?? "",
               source: task.source ?? "",
               difficulty: task.difficulty,
+              skillTag: task.skillTag ?? "",
               isPublic: task.isPublic,
               attachments: task.attachments,
             }}

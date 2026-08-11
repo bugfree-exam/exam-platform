@@ -54,6 +54,11 @@ export default async function TaskPage({ params }: TaskPageProps) {
                   Сложность {task.difficulty}/5
                 </span>
               ) : null}
+              {task.skillTag ? (
+                <span className="rounded-full bg-violet-100 px-3 py-1 text-sm font-medium text-violet-800">
+                  Навык: {task.skillTag}
+                </span>
+              ) : null}
             </div>
           </div>
 

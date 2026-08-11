@@ -20,7 +20,10 @@ const actionSchema = z
   .object({
     day: z.number().int().min(1).max(PLAN_LIMITS.maxDays),
     egeNumber: z.number().int().min(1).max(27),
+    skill: z.string().min(1).max(200).default("Уточнить навык внутри темы"),
     taskCount: z.number().int().min(1).max(PLAN_LIMITS.maxTasksPerAction),
+    minimumAccuracy: z.number().int().min(70).max(100).default(75),
+    controlDelayDays: z.number().int().min(1).max(7).default(2),
     goal: z.string().min(1).max(300),
   })
   .strict();

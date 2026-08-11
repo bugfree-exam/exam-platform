@@ -14,6 +14,29 @@ const topicLearningAnalyticsSchema = z
     previousAccuracy: z.number().min(0).max(100).nullable(),
     trend: z.number().min(-100).max(100).nullable(),
     currentErrorStreak: z.number().int().nonnegative(),
+    skillBreakdown: z
+      .array(
+        z
+          .object({
+            skill: z.string().min(1).max(120),
+            attempts: z.number().int().nonnegative(),
+            accuracy: z.number().min(0).max(100),
+          })
+          .strict()
+      )
+      .max(50),
+    errorCauses: z
+      .object({
+        THEORY_GAP: z.number().int().nonnegative().optional(),
+        ALGORITHM_GAP: z.number().int().nonnegative().optional(),
+        IMPLEMENTATION_ERROR: z.number().int().nonnegative().optional(),
+        CONDITION_READING: z.number().int().nonnegative().optional(),
+        CALCULATION_ERROR: z.number().int().nonnegative().optional(),
+        NO_CHECKING: z.number().int().nonnegative().optional(),
+        TIME_PRESSURE: z.number().int().nonnegative().optional(),
+        OTHER: z.number().int().nonnegative().optional(),
+      })
+      .strict(),
     category: z.enum([
       "INSUFFICIENT_DATA",
       "CRITICAL_GAP",

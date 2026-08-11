@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { PLAN_LIMITS, type StudyPlan } from "@/lib/ai/planSchema";
 import type { StudyPlanView } from "@/lib/ai/studyPlanView";
+import { learningErrorCauseLabels } from "@/lib/ai/errorCauses";
 
 type Props = {
   studentId: string;
@@ -207,7 +208,14 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
 
   function updateAction(
     index: number,
-    field: "day" | "egeNumber" | "taskCount" | "goal",
+    field:
+      | "day"
+      | "egeNumber"
+      | "skill"
+      | "taskCount"
+      | "minimumAccuracy"
+      | "controlDelayDays"
+      | "goal",
     value: string | number
   ) {
     setDraft((current) =>
@@ -340,17 +348,22 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-bold text-slate-950">Этапы работы</h3>
                   {draft.actions.length < PLAN_LIMITS.maxActions ? (
-                    <button type="button" onClick={() => setDraft({ ...draft, actions: [...draft.actions, { day: 1, egeNumber: draft.topics[0]?.egeNumber ?? 1, taskCount: 3, goal: "Добавьте цель этапа" }] })} className="text-xs font-bold text-violet-700">+ Добавить этап</button>
+                    <button type="button" onClick={() => setDraft({ ...draft, actions: [...draft.actions, { day: 1, egeNumber: draft.topics[0]?.egeNumber ?? 1, skill: "Укажите конкретный навык", taskCount: 5, minimumAccuracy: 75, controlDelayDays: 2, goal: "Добавьте цель этапа" }] })} className="text-xs font-bold text-violet-700">+ Добавить этап</button>
                   ) : null}
                 </div>
                 <div className="mt-3 space-y-3">
                   {draft.actions.map((action, index) => (
                     <div key={index} className="rounded-xl border border-slate-200 bg-white p-3">
-                      <div className="grid gap-3 md:grid-cols-[90px_100px_110px_minmax(0,1fr)]">
+                      <div className="grid gap-3 md:grid-cols-[90px_100px_minmax(0,1fr)]">
                         <input aria-label={`День этапа ${index + 1}`} type="number" min={1} max={draft.durationDays} value={action.day} onChange={(event) => updateAction(index, "day", Number(event.target.value))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
                         <input aria-label={`Номер ЕГЭ этапа ${index + 1}`} type="number" min={1} max={27} value={action.egeNumber} onChange={(event) => updateAction(index, "egeNumber", Number(event.target.value))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                        <input aria-label={`Количество задач этапа ${index + 1}`} type="number" min={1} max={PLAN_LIMITS.maxTasksPerAction} value={action.taskCount} onChange={(event) => updateAction(index, "taskCount", Number(event.target.value))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                        <input aria-label={`Цель этапа ${index + 1}`} value={action.goal} maxLength={300} onChange={(event) => updateAction(index, "goal", event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                        <input aria-label={`Навык этапа ${index + 1}`} value={action.skill} maxLength={200} onChange={(event) => updateAction(index, "skill", event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Конкретный проверяемый навык" />
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-[140px_160px_180px_minmax(0,1fr)]">
+                        <label className="text-[11px] font-bold text-slate-500">Задач<input aria-label={`Количество задач этапа ${index + 1}`} type="number" min={1} max={PLAN_LIMITS.maxTasksPerAction} value={action.taskCount} onChange={(event) => updateAction(index, "taskCount", Number(event.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-900" /></label>
+                        <label className="text-[11px] font-bold text-slate-500">Точность, %<input aria-label={`Минимальная точность этапа ${index + 1}`} type="number" min={70} max={100} value={action.minimumAccuracy} onChange={(event) => updateAction(index, "minimumAccuracy", Number(event.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-900" /></label>
+                        <label className="text-[11px] font-bold text-slate-500">Пауза, дней<input aria-label={`Пауза перед контролем этапа ${index + 1}`} type="number" min={1} max={7} value={action.controlDelayDays} onChange={(event) => updateAction(index, "controlDelayDays", Number(event.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-900" /></label>
+                        <label className="text-[11px] font-bold text-slate-500">Цель этапа<input aria-label={`Цель этапа ${index + 1}`} value={action.goal} maxLength={300} onChange={(event) => updateAction(index, "goal", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-900" placeholder="Что ученик должен понять и уметь" /></label>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
                         <button type="button" disabled={index === 0} onClick={() => moveAction(index, -1)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 disabled:opacity-30">↑ Выше</button>
@@ -379,7 +392,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                 <article className="rounded-2xl bg-slate-950 p-5 text-white">
                   <div className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">Выполнение плана</div>
                   <div className="mt-3 text-3xl font-bold">{plan.progress.percent}%</div>
-                  <div className="mt-1 text-xs text-slate-400">{plan.progress.completedTasks} из {plan.progress.totalTasks} задач</div>
+                  <div className="mt-1 text-xs text-slate-400">{plan.progress.completedActions} из {plan.progress.totalActions} этапов освоено</div>
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-700">
                     <div className="h-full rounded-full bg-cyan-400" style={{ width: `${plan.progress.percent}%` }} />
                   </div>
@@ -405,12 +418,21 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                     <div key={`${action.day}-${action.egeNumber}-${actionIndex}`} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center">
                       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-100 text-sm font-bold text-cyan-800">{action.day}</div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-slate-900">День {action.day} · задание №{action.egeNumber}</div>
+                        <div className="font-semibold text-slate-900">День {action.day} · {action.skill}</div>
+                        <div className="mt-1 text-xs font-bold text-cyan-800">Задание №{action.egeNumber}</div>
                         <div className="mt-1 text-sm text-slate-500">{action.goal}</div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          Практика {progress?.attempted ?? 0}/{action.taskCount} · точность последних задач {progress?.rollingAccuracy ?? 0}%/{action.minimumAccuracy}% · контроль {progress?.controlPassed ? "пройден" : `через ${action.controlDelayDays} дн.`}
+                        </div>
+                        {progress && Object.keys(progress.errorCauses).length > 0 ? (
+                          <div className="mt-2 text-xs text-amber-800">
+                            Причины ошибок: {Object.entries(progress.errorCauses).map(([cause, count]) => `${learningErrorCauseLabels[cause as keyof typeof learningErrorCauseLabels]} — ${count}`).join("; ")}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="shrink-0 text-right text-sm font-bold text-slate-700">
-                        {progress?.attempted ?? 0}/{action.taskCount}
-                        <div className="mt-1 text-[11px] font-medium text-slate-400">верно {progress?.correct ?? 0}</div>
+                        {progress?.percent ?? 0}%
+                        <div className="mt-1 text-[11px] font-medium text-slate-400">освоение навыка</div>
                       </div>
                     </div>
                   );

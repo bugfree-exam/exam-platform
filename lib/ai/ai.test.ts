@@ -62,6 +62,34 @@ test("detects a current error streak", () => {
   assert.equal(analytics.topics[0].category, "CRITICAL_GAP");
 });
 
+test("keeps skill and reported error causes in anonymized analytics", () => {
+  const analytics = analyzeStudentLearning({
+    answers: [
+      {
+        egeNumber: 12,
+        skillTag: "Поиск адреса сети",
+        errorCause: "ALGORITHM_GAP",
+        isCorrect: false,
+        attemptedAt: now,
+        source: "PRACTICE",
+      },
+      {
+        egeNumber: 12,
+        skillTag: "Поиск адреса сети",
+        isCorrect: true,
+        attemptedAt: new Date(now.getTime() - day),
+        source: "PRACTICE",
+      },
+    ],
+    variants: [],
+  });
+
+  assert.deepEqual(analytics.topics[0].skillBreakdown, [
+    { skill: "Поиск адреса сети", attempts: 2, accuracy: 50 },
+  ]);
+  assert.equal(analytics.topics[0].errorCauses.ALGORITHM_GAP, 1);
+});
+
 test("calculates variant score dynamics chronologically", () => {
   const analytics = analyzeStudentLearning({
     answers: [],
@@ -127,29 +155,91 @@ test("allows only safe study plan status transitions", () => {
   assert.throws(() => getNextStudyPlanStatus("CANCELLED", "CONFIRM"));
 });
 
-test("counts only attempts linked to each study plan action", () => {
+test("requires volume, rolling accuracy and delayed control for mastery", () => {
   const progress = calculateStudyPlanProgress(
     {
       actions: [
-        { day: 1, egeNumber: 2, taskCount: 2, goal: "Повторить" },
-        { day: 2, egeNumber: 8, taskCount: 1, goal: "Закрепить" },
+        {
+          day: 1,
+          egeNumber: 2,
+          skill: "Восстановление таблицы истинности",
+          taskCount: 4,
+          minimumAccuracy: 75,
+          controlDelayDays: 2,
+          goal: "Освоить навык",
+        },
       ],
     },
     [
-      { studyPlanActionIndex: 0, isCorrect: true },
-      { studyPlanActionIndex: 0, isCorrect: false },
-      { studyPlanActionIndex: 0, isCorrect: true },
-      { studyPlanActionIndex: 1, isCorrect: true },
-      { studyPlanActionIndex: null, isCorrect: true },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: true, createdAt: "2026-08-01T10:00:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: false, errorCause: "ALGORITHM_GAP", createdAt: "2026-08-01T10:05:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: true, createdAt: "2026-08-01T10:10:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: true, createdAt: "2026-08-01T10:15:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "CONTROL", isCorrect: true, createdAt: "2026-08-03T10:16:00Z" },
+      { studyPlanActionIndex: null, isCorrect: true, createdAt: "2026-08-04T10:00:00Z" },
     ]
   );
 
-  assert.equal(progress.completedTasks, 3);
-  assert.equal(progress.totalTasks, 3);
+  assert.equal(progress.completedTasks, 4);
+  assert.equal(progress.totalTasks, 4);
   assert.equal(progress.percent, 100);
-  assert.equal(progress.actions[0].attempted, 3);
-  assert.equal(progress.actions[0].correct, 2);
+  assert.equal(progress.actions[0].rollingAccuracy, 75);
+  assert.equal(progress.actions[0].controlPassed, true);
+  assert.equal(progress.actions[0].errorCauses.ALGORITHM_GAP, 1);
   assert.equal(progress.isCompleted, true);
+});
+
+test("does not complete a stage after many wrong attempts", () => {
+  const progress = calculateStudyPlanProgress(
+    {
+      actions: [{
+        day: 1,
+        egeNumber: 12,
+        skill: "Сети и маски",
+        taskCount: 6,
+        minimumAccuracy: 75,
+        controlDelayDays: 2,
+        goal: "Научиться находить адрес сети",
+      }],
+    },
+    Array.from({ length: 10 }, (_, index) => ({
+      studyPlanActionIndex: 0,
+      studyPlanAttemptKind: "PRACTICE" as const,
+      isCorrect: false,
+      createdAt: new Date(Date.UTC(2026, 7, 1, 10, index)).toISOString(),
+    }))
+  );
+
+  assert.equal(progress.actions[0].volumeMet, true);
+  assert.equal(progress.actions[0].accuracyMet, false);
+  assert.equal(progress.actions[0].controlPassed, false);
+  assert.equal(progress.actions[0].isCompleted, false);
+  assert.ok(progress.percent < 100);
+});
+
+test("ignores a control attempt made before the required pause", () => {
+  const progress = calculateStudyPlanProgress(
+    {
+      actions: [{
+        day: 1,
+        egeNumber: 2,
+        skill: "Таблицы истинности",
+        taskCount: 2,
+        minimumAccuracy: 100,
+        controlDelayDays: 2,
+        goal: "Подтвердить навык",
+      }],
+    },
+    [
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: true, createdAt: "2026-08-01T10:00:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "PRACTICE", isCorrect: true, createdAt: "2026-08-01T10:05:00Z" },
+      { studyPlanActionIndex: 0, studyPlanAttemptKind: "CONTROL", isCorrect: true, createdAt: "2026-08-01T11:00:00Z" },
+    ]
+  );
+
+  assert.equal(progress.actions[0].accuracyMet, true);
+  assert.equal(progress.actions[0].controlPassed, false);
+  assert.equal(progress.actions[0].isCompleted, false);
 });
 
 test("demo profiles reproduce the intended learning scenarios", () => {

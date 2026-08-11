@@ -162,7 +162,10 @@ export default async function TeacherStudentPage({
           practiceAttempts: {
             select: {
               studyPlanActionIndex: true,
+              studyPlanAttemptKind: true,
+              errorCause: true,
               isCorrect: true,
+              createdAt: true,
             },
           },
         },

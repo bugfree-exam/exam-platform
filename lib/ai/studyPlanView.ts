@@ -49,7 +49,19 @@ type StudyPlanRecord = {
   };
   practiceAttempts?: Array<{
     studyPlanActionIndex: number | null;
+    studyPlanAttemptKind: "PRACTICE" | "CONTROL" | null;
+    errorCause:
+      | "THEORY_GAP"
+      | "ALGORITHM_GAP"
+      | "IMPLEMENTATION_ERROR"
+      | "CONDITION_READING"
+      | "CALCULATION_ERROR"
+      | "NO_CHECKING"
+      | "TIME_PRESSURE"
+      | "OTHER"
+      | null;
     isCorrect: boolean;
+    createdAt: Date;
   }>;
 };
 

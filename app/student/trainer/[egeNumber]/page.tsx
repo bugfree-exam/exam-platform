@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { TrainerTaskSolver } from "@/components/student/TrainerTaskSolver";
 import { requireStudentPage } from "@/lib/access";
 import { studyPlanSchema } from "@/lib/ai/planSchema";
+import { calculateStudyPlanProgress } from "@/lib/ai/studyPlanProgress";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ type TrainerNumberPageProps = {
     task?: string;
     plan?: string;
     action?: string;
+    mode?: string;
   }>;
 };
 
@@ -43,27 +45,80 @@ export default async function TrainerNumberPage({
     notFound();
   }
 
-  const taskIds = await prisma.task.findMany({
+  const linkedPlan =
+    query.plan && Number.isInteger(requestedActionIndex) && requestedActionIndex >= 0
+      ? await prisma.studentStudyPlan.findFirst({
+          where: {
+            id: query.plan,
+            studentId: user.id,
+            status: "CONFIRMED",
+          },
+          select: {
+            id: true,
+            title: true,
+            durationDays: true,
+            topics: true,
+            actions: true,
+            practiceAttempts: {
+              where: { studyPlanActionIndex: requestedActionIndex },
+              select: {
+                id: true,
+                taskId: true,
+                studyPlanActionIndex: true,
+                studyPlanAttemptKind: true,
+                errorCause: true,
+                isCorrect: true,
+                createdAt: true,
+              },
+            },
+          },
+        })
+      : null;
+  const validatedLinkedPlan = linkedPlan
+    ? studyPlanSchema.safeParse({
+        title: linkedPlan.title,
+        summary: "Проверка активного этапа",
+        durationDays: linkedPlan.durationDays,
+        topics: linkedPlan.topics,
+        actions: linkedPlan.actions,
+      })
+    : null;
+  const linkedAction = validatedLinkedPlan?.success
+    ? validatedLinkedPlan.data.actions[requestedActionIndex]
+    : undefined;
+
+  const allTaskIds = await prisma.task.findMany({
     where: {
       egeNumber,
       isArchived: false,
     },
     select: {
       id: true,
+      skillTag: true,
     },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 
-  if (taskIds.length === 0) {
+  if (allTaskIds.length === 0) {
     notFound();
   }
 
+  const skillMatchedTasks = linkedAction
+    ? allTaskIds.filter((item) => item.skillTag === linkedAction.skill)
+    : [];
+  const taskIds = skillMatchedTasks.length > 0 ? skillMatchedTasks : allTaskIds;
+  const usedTaskIds = new Set(
+    linkedPlan?.practiceAttempts.map((attempt) => attempt.taskId) ?? []
+  );
   const requestedTaskExists = taskIds.some((item) => item.id === query.task);
-  const currentTaskId = requestedTaskExists ? query.task! : taskIds[0].id;
+  const unseenTask = taskIds.find((item) => !usedTaskIds.has(item.id));
+  const currentTaskId = requestedTaskExists
+    ? query.task!
+    : unseenTask?.id ?? taskIds[0].id;
   const currentPosition =
     taskIds.findIndex((item) => item.id === currentTaskId) + 1;
 
-  const [task, numberAttempts, linkedPlan] = await Promise.all([
+  const [task, numberAttempts] = await Promise.all([
     prisma.task.findUnique({
       where: {
         id: currentTaskId,
@@ -99,44 +154,25 @@ export default async function TrainerNumberPage({
         isCorrect: true,
       },
     }),
-    query.plan && Number.isInteger(requestedActionIndex) && requestedActionIndex >= 0
-      ? prisma.studentStudyPlan.findFirst({
-          where: {
-            id: query.plan,
-            studentId: user.id,
-            status: "CONFIRMED",
-          },
-          select: {
-            id: true,
-            title: true,
-            durationDays: true,
-            topics: true,
-            actions: true,
-            practiceAttempts: {
-              where: { studyPlanActionIndex: requestedActionIndex },
-              select: { id: true },
-            },
-          },
-        })
-      : null,
   ]);
 
   if (!task) {
     notFound();
   }
 
-  const validatedLinkedPlan = linkedPlan
-    ? studyPlanSchema.safeParse({
-        title: linkedPlan.title,
-        summary: "Проверка активного этапа",
-        durationDays: linkedPlan.durationDays,
-        topics: linkedPlan.topics,
-        actions: linkedPlan.actions,
-      })
-    : null;
-  const linkedAction = validatedLinkedPlan?.success
-    ? validatedLinkedPlan.data.actions[requestedActionIndex]
-    : undefined;
+  const linkedActionProgress =
+    validatedLinkedPlan?.success && linkedPlan
+      ? calculateStudyPlanProgress(
+          validatedLinkedPlan.data,
+          linkedPlan.practiceAttempts
+        ).actions[requestedActionIndex]
+      : undefined;
+  const requestedControl = query.mode === "control";
+  const controlAvailable = Boolean(
+    linkedActionProgress?.accuracyMet &&
+      linkedActionProgress.controlAvailableAt &&
+      new Date(linkedActionProgress.controlAvailableAt) <= new Date()
+  );
   const studyPlanContext =
     linkedPlan && linkedAction?.egeNumber === egeNumber
       ? {
@@ -144,7 +180,11 @@ export default async function TrainerNumberPage({
           actionIndex: requestedActionIndex,
           title: linkedPlan.title,
           target: linkedAction.taskCount,
-          completedBefore: linkedPlan.practiceAttempts.length,
+          completedBefore: linkedActionProgress?.attempted ?? 0,
+          attemptKind:
+            requestedControl && controlAvailable
+              ? ("CONTROL" as const)
+              : ("PRACTICE" as const),
         }
       : undefined;
 
@@ -192,7 +232,9 @@ export default async function TrainerNumberPage({
               </span>
               {studyPlanContext ? (
                 <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 font-mono text-[11px] text-emerald-200">
-                  мой план · {Math.min(studyPlanContext.completedBefore, studyPlanContext.target)}/{studyPlanContext.target}
+                  {studyPlanContext.attemptKind === "CONTROL"
+                    ? "контроль освоения"
+                    : `мой план · ${Math.min(studyPlanContext.completedBefore, studyPlanContext.target)}/${studyPlanContext.target}`}
                 </span>
               ) : null}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-slate-300">

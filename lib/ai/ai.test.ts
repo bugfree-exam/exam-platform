@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { analyzeStudentLearning } from "./analytics";
 import { parseStudentLearningAnalytics } from "./analyticsSchema";
+import { AI_DEMO_PROFILES, materializeDemoAnswers } from "./demoProfiles";
 import { generateValidatedStudyPlan } from "./generateStudyPlan";
 import { MockStudyPlanProvider } from "./providers/mock";
 import { getNextStudyPlanStatus } from "./studyPlanLifecycle";
@@ -119,4 +120,40 @@ test("allows only safe study plan status transitions", () => {
   assert.equal(getNextStudyPlanStatus("CONFIRMED", "CANCEL"), "CANCELLED");
   assert.throws(() => getNextStudyPlanStatus("CONFIRMED", "CONFIRM"));
   assert.throws(() => getNextStudyPlanStatus("CANCELLED", "CONFIRM"));
+});
+
+test("demo profiles reproduce the intended learning scenarios", () => {
+  const analyticsByProfile = new Map(
+    AI_DEMO_PROFILES.map((profile) => [
+      profile.key,
+      analyzeStudentLearning({
+        answers: materializeDemoAnswers(profile, now),
+        variants: [],
+      }),
+    ])
+  );
+
+  assert.equal(analyticsByProfile.get("new")?.totalAnswers, 0);
+  assert.ok(
+    analyticsByProfile
+      .get("strong")
+      ?.topics.every((topic) => topic.category === "MASTERED")
+  );
+  assert.ok(
+    analyticsByProfile
+      .get("critical")
+      ?.topics.every((topic) => topic.category === "CRITICAL_GAP")
+  );
+  assert.equal(
+    analyticsByProfile.get("declining")?.topics[0]?.trend,
+    -100
+  );
+  assert.equal(
+    analyticsByProfile.get("declining")?.topics[0]?.category,
+    "CRITICAL_GAP"
+  );
+  assert.equal(
+    analyticsByProfile.get("streak")?.topics[0]?.currentErrorStreak,
+    4
+  );
 });

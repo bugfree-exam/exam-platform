@@ -8,8 +8,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
-import { generateValidatedStudyPlan } from "@/lib/ai/generateStudyPlan";
-import { MockStudyPlanProvider } from "@/lib/ai/providers/mock";
+import { generateStudyPlanWithFallback } from "@/lib/ai/generateStudyPlanWithFallback";
+import { createConfiguredStudyPlanProvider } from "@/lib/ai/providers/config";
+import type { StudyPlanProvider } from "@/lib/ai/providers/provider";
 import { getNextStudyPlanStatus } from "@/lib/ai/studyPlanLifecycle";
 import { getStudentLearningAnalytics } from "@/lib/ai/studentLearningAnalytics";
 import { toStudyPlanView } from "@/lib/ai/studyPlanView";
@@ -68,10 +69,21 @@ export async function POST(_request: Request, context: RouteContext) {
     return NextResponse.json({ message: "Ученик не найден" }, { status: 404 });
   }
 
-  const provider = new MockStudyPlanProvider();
+  let provider: StudyPlanProvider;
+
+  try {
+    provider = createConfiguredStudyPlanProvider();
+  } catch (error) {
+    console.error("[AI_STUDY_PLAN_CONFIG]", getSafeErrorMessage(error));
+    return NextResponse.json(
+      { message: "AI Assistant настроен некорректно" },
+      { status: 500 }
+    );
+  }
+
   const analytics = await getStudentLearningAnalytics(student.id);
   const analyticsSnapshot = toPrismaJson(analytics);
-  const generation = await prisma.aiGeneration.create({
+  const primaryGeneration = await prisma.aiGeneration.create({
     data: {
       studentId: student.id,
       provider: provider.name,
@@ -83,11 +95,47 @@ export async function POST(_request: Request, context: RouteContext) {
   });
 
   try {
-    const plan = await generateValidatedStudyPlan(provider, analytics);
+    const result = await generateStudyPlanWithFallback(provider, analytics);
+    const { plan } = result;
     const outputSnapshot = toPrismaJson(plan);
     const completedAt = new Date();
 
     const createdPlan = await prisma.$transaction(async (transaction) => {
+      let successfulGenerationId = primaryGeneration.id;
+
+      if (result.failedPrimary) {
+        await transaction.aiGeneration.update({
+          where: { id: primaryGeneration.id },
+          data: {
+            status: AiGenerationStatus.FAILED,
+            errorMessage: getSafeErrorMessage(result.failedPrimary.error),
+            completedAt,
+          },
+        });
+
+        const fallbackGeneration = await transaction.aiGeneration.create({
+          data: {
+            studentId: student.id,
+            provider: result.provider.name,
+            status: AiGenerationStatus.SUCCEEDED,
+            analyticsSnapshot,
+            outputSnapshot,
+            completedAt,
+          },
+          select: { id: true },
+        });
+        successfulGenerationId = fallbackGeneration.id;
+      } else {
+        await transaction.aiGeneration.update({
+          where: { id: primaryGeneration.id },
+          data: {
+            status: AiGenerationStatus.SUCCEEDED,
+            outputSnapshot,
+            completedAt,
+          },
+        });
+      }
+
       await transaction.studentStudyPlan.updateMany({
         where: {
           studentId: student.id,
@@ -99,19 +147,10 @@ export async function POST(_request: Request, context: RouteContext) {
         },
       });
 
-      await transaction.aiGeneration.update({
-        where: { id: generation.id },
-        data: {
-          status: AiGenerationStatus.SUCCEEDED,
-          outputSnapshot,
-          completedAt,
-        },
-      });
-
       return transaction.studentStudyPlan.create({
         data: {
           studentId: student.id,
-          generationId: generation.id,
+          generationId: successfulGenerationId,
           title: plan.title,
           summary: plan.summary,
           durationDays: plan.durationDays,
@@ -131,10 +170,10 @@ export async function POST(_request: Request, context: RouteContext) {
 
     return NextResponse.json({ plan: toStudyPlanView(createdPlan) });
   } catch (error) {
-    console.error("[AI_STUDY_PLAN_GENERATE]", error);
+    console.error("[AI_STUDY_PLAN_GENERATE]", getSafeErrorMessage(error));
 
     await prisma.aiGeneration.update({
-      where: { id: generation.id },
+      where: { id: primaryGeneration.id },
       data: {
         status: AiGenerationStatus.FAILED,
         errorMessage: getSafeErrorMessage(error),

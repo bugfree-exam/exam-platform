@@ -5,7 +5,10 @@ import { analyzeStudentLearning } from "./analytics";
 import { parseStudentLearningAnalytics } from "./analyticsSchema";
 import { AI_DEMO_PROFILES, materializeDemoAnswers } from "./demoProfiles";
 import { generateValidatedStudyPlan } from "./generateStudyPlan";
+import { generateStudyPlanWithFallback } from "./generateStudyPlanWithFallback";
+import { createConfiguredStudyPlanProvider } from "./providers/config";
 import { MockStudyPlanProvider } from "./providers/mock";
+import { OpenAiCompatibleStudyPlanProvider } from "./providers/openAiCompatible";
 import { getNextStudyPlanStatus } from "./studyPlanLifecycle";
 import type { LearningAnswer, StudentLearningAnalytics } from "./types";
 
@@ -156,4 +159,105 @@ test("demo profiles reproduce the intended learning scenarios", () => {
     analyticsByProfile.get("streak")?.topics[0]?.currentErrorStreak,
     4
   );
+});
+
+test("uses mock by default and requires complete external provider settings", () => {
+  assert.equal(createConfiguredStudyPlanProvider({}).name, "mock");
+  assert.throws(() =>
+    createConfiguredStudyPlanProvider({
+      AI_PROVIDER: "openai-compatible",
+      AI_API_BASE_URL: "https://example.com/v1",
+    })
+  );
+});
+
+test("external provider sends only validated anonymized analytics", async () => {
+  const analytics = analyzeStudentLearning({
+    answers: answers(8, [false, true, false]),
+    variants: [],
+  });
+  const capturedRequests: Record<string, unknown>[] = [];
+
+  const provider = new OpenAiCompatibleStudyPlanProvider({
+    apiBaseUrl: "https://provider.example/v1",
+    apiKey: "test-secret",
+    model: "test-model",
+    fetchImpl: async (_input, init) => {
+      capturedRequests.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>
+      );
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  title: "План по заданию №8",
+                  summary: "Безопасный тестовый план",
+                  durationDays: 3,
+                  topics: [
+                    {
+                      egeNumber: 8,
+                      priority: "HIGH",
+                      reason: "Низкая точность",
+                    },
+                  ],
+                  actions: [
+                    {
+                      day: 1,
+                      egeNumber: 8,
+                      taskCount: 5,
+                      goal: "Отработать алгоритм решения",
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    },
+  });
+
+  const plan = await generateValidatedStudyPlan(provider, analytics);
+  assert.equal(plan.topics[0].egeNumber, 8);
+
+  const requestBody = capturedRequests[0];
+  assert.ok(requestBody);
+  const messages = requestBody.messages;
+  assert.ok(Array.isArray(messages));
+  const userMessage = messages.find(
+    (message) =>
+      message && typeof message === "object" && message.role === "user"
+  );
+  assert.ok(userMessage && typeof userMessage.content === "string");
+  assert.deepEqual(JSON.parse(userMessage.content), { analytics });
+
+  const serialized = JSON.stringify(requestBody);
+  assert.ok(!serialized.includes("studentEmail"));
+  assert.ok(!serialized.includes("studentName"));
+  assert.ok(!serialized.includes("correctAnswer"));
+});
+
+test("falls back to validated mock plan when external provider fails", async () => {
+  const analytics = analyzeStudentLearning({
+    answers: answers(13, [false, false, true]),
+    variants: [],
+  });
+  const unavailableProvider = {
+    name: "openai-compatible:unavailable",
+    async generatePlan() {
+      throw new Error("Provider unavailable");
+    },
+  };
+
+  const result = await generateStudyPlanWithFallback(
+    unavailableProvider,
+    analytics
+  );
+
+  assert.equal(result.provider.name, "mock:fallback");
+  assert.equal(result.failedPrimary?.provider, unavailableProvider.name);
+  assert.equal(result.plan.topics[0].egeNumber, 13);
 });

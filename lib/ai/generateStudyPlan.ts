@@ -7,5 +7,14 @@ export async function generateValidatedStudyPlan(
   analytics: StudentLearningAnalytics
 ): Promise<StudyPlan> {
   const untrustedResult = await provider.generatePlan(analytics);
-  return validateStudyPlan(untrustedResult);
+
+  try {
+    return validateStudyPlan(untrustedResult);
+  } catch {
+    // Validation errors may contain fragments of the untrusted provider output.
+    // Never pass them to logs, the database or the teacher interface.
+    throw new Error(
+      "AI-провайдер вернул план, который не прошёл безопасную проверку"
+    );
+  }
 }

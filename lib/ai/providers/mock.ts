@@ -18,7 +18,7 @@ const priorityByCategory: Record<MasteryCategory, "HIGH" | "MEDIUM" | "LOW"> = {
 };
 
 export class MockStudyPlanProvider implements StudyPlanProvider {
-  readonly name = "mock";
+  constructor(readonly name = "mock") {}
 
   async generatePlan(analytics: StudentLearningAnalytics): Promise<unknown> {
     const selected = [...analytics.topics]

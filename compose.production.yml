@@ -78,6 +78,12 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       REMINDER_CRON_SECRET: ${REMINDER_CRON_SECRET:-}
 
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_BASE_URL: ${AI_API_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-30000}
+
     volumes:
       - ./storage/uploads:/app/public/uploads
       - ./storage/task-files:/app/storage/task-files

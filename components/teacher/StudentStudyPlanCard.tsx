@@ -138,10 +138,10 @@ export function StudentStudyPlanCard({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white">
-                AI Assistant · mock
+                AI Assistant
               </span>
               <span className="text-xs font-semibold text-cyan-800">
-                Локальный тест без платного AI
+                Безопасный режим с проверкой каждого плана
               </span>
             </div>
             <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
@@ -184,8 +184,8 @@ export function StudentStudyPlanCard({
               План ещё не сформирован
             </div>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Нажмите кнопку выше — mock-провайдер проанализирует текущую
-              статистику ученика и создаст первый черновик.
+              Нажмите кнопку выше — настроенный провайдер проанализирует
+              обезличенную статистику и создаст первый черновик.
             </p>
           </div>
         </div>
@@ -198,7 +198,7 @@ export function StudentStudyPlanCard({
               {statusLabels[plan.status]}
             </span>
             <span className="text-xs text-slate-400">
-              Создан {formatDate(plan.createdAt)} · провайдер {plan.provider}
+              Создан {formatDate(plan.createdAt)} · {plan.providerLabel}
             </span>
           </div>
 

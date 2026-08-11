@@ -1,5 +1,9 @@
 import { parseStudentLearningAnalytics } from "./analyticsSchema";
 import { studyPlanSchema, type StudyPlan } from "./planSchema";
+import {
+  calculateStudyPlanProgress,
+  type StudyPlanProgress,
+} from "./studyPlanProgress";
 import type { StudentLearningAnalytics } from "./types";
 
 export type StudyPlanView = StudyPlan & {
@@ -8,7 +12,9 @@ export type StudyPlanView = StudyPlan & {
   provider: string;
   providerLabel: string;
   analytics: StudentLearningAnalytics;
+  progress: StudyPlanProgress;
   createdAt: string;
+  teacherEditedAt: string | null;
   confirmedAt: string | null;
   cancelledAt: string | null;
 };
@@ -35,11 +41,16 @@ type StudyPlanRecord = {
   actions: unknown;
   analyticsSnapshot: unknown;
   createdAt: Date;
+  teacherEditedAt: Date | null;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
   generation: {
     provider: string;
   };
+  practiceAttempts?: Array<{
+    studyPlanActionIndex: number | null;
+    isCorrect: boolean;
+  }>;
 };
 
 export function toStudyPlanView(record: StudyPlanRecord): StudyPlanView {
@@ -57,7 +68,9 @@ export function toStudyPlanView(record: StudyPlanRecord): StudyPlanView {
     provider: record.generation.provider,
     providerLabel: getStudyPlanProviderLabel(record.generation.provider),
     analytics: parseStudentLearningAnalytics(record.analyticsSnapshot),
+    progress: calculateStudyPlanProgress(plan, record.practiceAttempts),
     createdAt: record.createdAt.toISOString(),
+    teacherEditedAt: record.teacherEditedAt?.toISOString() ?? null,
     confirmedAt: record.confirmedAt?.toISOString() ?? null,
     cancelledAt: record.cancelledAt?.toISOString() ?? null,
     ...plan,

@@ -149,7 +149,7 @@ export default async function TeacherStudentPage({
         },
       },
       studyPlans: {
-        take: 1,
+        take: 20,
         orderBy: {
           createdAt: "desc",
         },
@@ -157,6 +157,12 @@ export default async function TeacherStudentPage({
           generation: {
             select: {
               provider: true,
+            },
+          },
+          practiceAttempts: {
+            select: {
+              studyPlanActionIndex: true,
+              isCorrect: true,
             },
           },
         },
@@ -247,9 +253,7 @@ export default async function TeacherStudentPage({
   const pendingHomeworks =
     student.assignedHomeworks.length - completedHomeworks;
 
-  const latestStudyPlan = student.studyPlans[0]
-    ? toStudyPlanView(student.studyPlans[0])
-    : null;
+  const studyPlans = student.studyPlans.map(toStudyPlanView);
 
   return (
     <main className="min-h-screen bg-slate-100/70 px-4 py-6 text-slate-950 sm:px-6 sm:py-8">
@@ -359,7 +363,7 @@ export default async function TeacherStudentPage({
 
         <StudentStudyPlanCard
           studentId={student.id}
-          initialPlan={latestStudyPlan}
+          initialPlans={studyPlans}
         />
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">

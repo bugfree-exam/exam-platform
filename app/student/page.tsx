@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { LogoutButton } from "@/components/LogoutButton";
+import { StudyPlanSummaryCard } from "@/components/student/StudyPlanSummaryCard";
 import { getCurrentUser } from "@/lib/auth";
+import { toStudyPlanView } from "@/lib/ai/studyPlanView";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getStudentToday, type TodayItem } from "@/lib/studentDashboard";
@@ -19,36 +21,43 @@ type StudentSection = {
 
 const studentSections: StudentSection[] = [
   {
+    href: "/student/study-plan",
+    label: "01 · Маршрут",
+    title: "Мой план",
+    description: "Персональные шаги от учителя и прогресс выполнения.",
+    accent: "bg-cyan-50 text-cyan-800",
+  },
+  {
     href: "/student/homeworks",
-    label: "01 · Практика",
+    label: "02 · Практика",
     title: "Домашние задания",
     description: "Назначенные работы, дедлайны, ответы и результаты.",
     accent: "bg-cyan-50 text-cyan-800",
   },
   {
     href: "/student/trainer",
-    label: "02 · Тренажёр",
+    label: "03 · Тренажёр",
     title: "Отработать номер",
     description: "Выберите номер ЕГЭ и решайте задания подряд.",
     accent: "bg-violet-50 text-violet-800",
   },
   {
     href: "/student/variants",
-    label: "03 · Экзамен",
+    label: "04 · Экзамен",
     title: "Полные варианты",
     description: "27 заданий, таймер, автосохранение и разбор результата.",
     accent: "bg-amber-50 text-amber-800",
   },
   {
     href: "/student/results",
-    label: "04 · Аналитика",
+    label: "05 · Аналитика",
     title: "Результаты и ошибки",
     description: "Готовность к ЕГЭ, слабые номера и динамика подготовки.",
     accent: "bg-emerald-50 text-emerald-800",
   },
   {
     href: "/student/webinars",
-    label: "05 · Материалы",
+    label: "06 · Материалы",
     title: "Вебинары и конспекты",
     description: "Записи, презентации, шпаргалки и материалы курса.",
     accent: "bg-sky-50 text-sky-800",
@@ -116,7 +125,7 @@ export default async function StudentPage() {
 
   if (!user) return null;
 
-  const [todayItems, upcomingWebinars] = await Promise.all([
+  const [todayItems, upcomingWebinars, studyPlanRecord] = await Promise.all([
     getStudentToday(user.id),
     prisma.webinarSchedule.findMany({
       where: {
@@ -126,7 +135,24 @@ export default async function StudentPage() {
       orderBy: { scheduledAt: "asc" },
       take: 4,
     }),
+    prisma.studentStudyPlan.findFirst({
+      where: {
+        studentId: user.id,
+        status: "CONFIRMED",
+      },
+      orderBy: { confirmedAt: "desc" },
+      include: {
+        generation: { select: { provider: true } },
+        practiceAttempts: {
+          select: {
+            studyPlanActionIndex: true,
+            isCorrect: true,
+          },
+        },
+      },
+    }),
   ]);
+  const studyPlan = studyPlanRecord ? toStudyPlanView(studyPlanRecord) : null;
 
   const firstName = user.name.trim().split(" ")[0] || "Ученик";
   const onboardingUrl = env.ONBOARDING_VIDEO_URL;
@@ -200,6 +226,8 @@ export default async function StudentPage() {
             </div>
           </div>
         </section>
+
+        {studyPlan ? <StudyPlanSummaryCard plan={studyPlan} /> : null}
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
           <article className="rounded-[30px] border border-white bg-white p-5 shadow-sm sm:p-6">

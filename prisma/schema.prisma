@@ -140,6 +140,7 @@ model StudentStudyPlan {
   topics            Json
   actions           Json
   analyticsSnapshot Json
+  teacherEditedAt   DateTime?
   confirmedAt       DateTime?
   cancelledAt       DateTime?
   createdAt         DateTime        @default(now())
@@ -147,6 +148,7 @@ model StudentStudyPlan {
 
   student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   generation AiGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  practiceAttempts PracticeAttempt[]
 
   @@index([studentId, createdAt])
   @@index([studentId, status])
@@ -301,6 +303,8 @@ model PracticeAttempt {
   id        String @id @default(cuid())
   studentId String
   taskId    String
+  studyPlanId          String?
+  studyPlanActionIndex Int?
 
   rawAnswer        Json
   normalizedAnswer Json?
@@ -310,9 +314,11 @@ model PracticeAttempt {
 
   student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
   task    Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studyPlan StudentStudyPlan? @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
   @@index([studentId, taskId])
+  @@index([studyPlanId, studyPlanActionIndex, createdAt])
   @@index([taskId])
 }
 

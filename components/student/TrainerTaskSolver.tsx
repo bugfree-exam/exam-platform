@@ -45,10 +45,17 @@ export function TrainerTaskSolver({
   taskId,
   egeNumber,
   answerType,
+  studyPlanContext,
 }: {
   taskId: string;
   egeNumber: number;
   answerType: AnswerType;
+  studyPlanContext?: {
+    planId: string;
+    actionIndex: number;
+    target: number;
+    completedBefore: number;
+  };
 }) {
   const router = useRouter();
   const [answer, setAnswer] = useState("");
@@ -72,7 +79,11 @@ export function TrainerTaskSolver({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ answer }),
+          body: JSON.stringify({
+            answer,
+            studyPlanId: studyPlanContext?.planId,
+            studyPlanActionIndex: studyPlanContext?.actionIndex,
+          }),
         }
       );
       const data = (await response.json().catch(() => ({}))) as
@@ -96,7 +107,12 @@ export function TrainerTaskSolver({
   function openNextTask() {
     if (!nextTaskId) return;
 
-    router.push(`/student/trainer/${egeNumber}?task=${nextTaskId}`);
+    const query = new URLSearchParams({ task: nextTaskId });
+    if (studyPlanContext) {
+      query.set("plan", studyPlanContext.planId);
+      query.set("action", String(studyPlanContext.actionIndex));
+    }
+    router.push(`/student/trainer/${egeNumber}?${query.toString()}`);
   }
 
   return (
@@ -108,7 +124,12 @@ export function TrainerTaskSolver({
         Введите ответ
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        Результат этой проверки сразу попадёт в раздел «Результаты и ошибки».
+        {studyPlanContext
+          ? `Результат засчитается в этап плана: ${Math.min(
+              studyPlanContext.completedBefore + (result ? 1 : 0),
+              studyPlanContext.target
+            )} из ${studyPlanContext.target}.`
+          : "Результат этой проверки сразу попадёт в раздел «Результаты и ошибки»."}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5">

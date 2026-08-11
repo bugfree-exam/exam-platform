@@ -3,14 +3,27 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
+import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { checkAnswer } from "@/lib/checkAnswer";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-const attemptSchema = z.object({
-  answer: z.string().max(10_000),
-});
+const attemptSchema = z
+  .object({
+    answer: z.string().max(10_000),
+    studyPlanId: z.string().min(1).optional(),
+    studyPlanActionIndex: z.number().int().min(0).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.studyPlanId === undefined) !== (value.studyPlanActionIndex === undefined)) {
+      context.addIssue({
+        code: "custom",
+        message: "Контекст учебного плана указан не полностью",
+      });
+    }
+  });
 
 type RouteContext = {
   params: Promise<{
@@ -58,6 +71,58 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
+    let studyPlanLink:
+      | { studyPlanId: string; studyPlanActionIndex: number }
+      | undefined;
+
+    if (
+      parsed.data.studyPlanId !== undefined &&
+      parsed.data.studyPlanActionIndex !== undefined
+    ) {
+      const studyPlan = await prisma.studentStudyPlan.findFirst({
+        where: {
+          id: parsed.data.studyPlanId,
+          studentId: auth.user.id,
+          status: "CONFIRMED",
+        },
+        select: {
+          id: true,
+          title: true,
+          durationDays: true,
+          topics: true,
+          actions: true,
+        },
+      });
+
+      if (!studyPlan) {
+        return NextResponse.json(
+          { message: "Этот учебный план уже не активен" },
+          { status: 409 }
+        );
+      }
+
+      const validatedPlan = studyPlanSchema.parse({
+        title: studyPlan.title,
+        summary: "Проверка активного этапа",
+        durationDays: studyPlan.durationDays,
+        topics: studyPlan.topics,
+        actions: studyPlan.actions,
+      });
+      const planAction = validatedPlan.actions[parsed.data.studyPlanActionIndex];
+
+      if (!planAction || planAction.egeNumber !== task.egeNumber) {
+        return NextResponse.json(
+          { message: "Задание не относится к выбранному этапу плана" },
+          { status: 400 }
+        );
+      }
+
+      studyPlanLink = {
+        studyPlanId: studyPlan.id,
+        studyPlanActionIndex: parsed.data.studyPlanActionIndex,
+      };
+    }
+
     const checkedAnswer = checkAnswer({
       answerType: task.answerType,
       correctAnswer: task.correctAnswer,
@@ -74,6 +139,7 @@ export async function POST(request: Request, context: RouteContext) {
             ? Prisma.JsonNull
             : checkedAnswer.normalizedStudentAnswer,
         isCorrect: checkedAnswer.isCorrect,
+        ...studyPlanLink,
       },
       select: {
         id: true,

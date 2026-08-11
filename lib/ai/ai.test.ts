@@ -11,6 +11,7 @@ import { MockStudyPlanProvider } from "./providers/mock";
 import { OpenAiCompatibleStudyPlanProvider } from "./providers/openAiCompatible";
 import { YandexStudyPlanProvider } from "./providers/yandex";
 import { getNextStudyPlanStatus } from "./studyPlanLifecycle";
+import { calculateStudyPlanProgress } from "./studyPlanProgress";
 import type { LearningAnswer, StudentLearningAnalytics } from "./types";
 
 const day = 24 * 60 * 60 * 1000;
@@ -124,6 +125,31 @@ test("allows only safe study plan status transitions", () => {
   assert.equal(getNextStudyPlanStatus("CONFIRMED", "CANCEL"), "CANCELLED");
   assert.throws(() => getNextStudyPlanStatus("CONFIRMED", "CONFIRM"));
   assert.throws(() => getNextStudyPlanStatus("CANCELLED", "CONFIRM"));
+});
+
+test("counts only attempts linked to each study plan action", () => {
+  const progress = calculateStudyPlanProgress(
+    {
+      actions: [
+        { day: 1, egeNumber: 2, taskCount: 2, goal: "Повторить" },
+        { day: 2, egeNumber: 8, taskCount: 1, goal: "Закрепить" },
+      ],
+    },
+    [
+      { studyPlanActionIndex: 0, isCorrect: true },
+      { studyPlanActionIndex: 0, isCorrect: false },
+      { studyPlanActionIndex: 0, isCorrect: true },
+      { studyPlanActionIndex: 1, isCorrect: true },
+      { studyPlanActionIndex: null, isCorrect: true },
+    ]
+  );
+
+  assert.equal(progress.completedTasks, 3);
+  assert.equal(progress.totalTasks, 3);
+  assert.equal(progress.percent, 100);
+  assert.equal(progress.actions[0].attempted, 3);
+  assert.equal(progress.actions[0].correct, 2);
+  assert.equal(progress.isCompleted, true);
 });
 
 test("demo profiles reproduce the intended learning scenarios", () => {

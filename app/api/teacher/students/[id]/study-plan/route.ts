@@ -14,6 +14,7 @@ import type { StudyPlanProvider } from "@/lib/ai/providers/provider";
 import { getNextStudyPlanStatus } from "@/lib/ai/studyPlanLifecycle";
 import { getStudentLearningAnalytics } from "@/lib/ai/studentLearningAnalytics";
 import { toStudyPlanView } from "@/lib/ai/studyPlanView";
+import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -30,6 +31,27 @@ const updatePlanSchema = z
     action: z.enum(["CONFIRM", "CANCEL"]),
   })
   .strict();
+
+const editPlanSchema = z
+  .object({
+    planId: z.string().min(1),
+    plan: studyPlanSchema,
+  })
+  .strict();
+
+const planInclude = {
+  generation: {
+    select: {
+      provider: true,
+    },
+  },
+  practiceAttempts: {
+    select: {
+      studyPlanActionIndex: true,
+      isCorrect: true,
+    },
+  },
+} satisfies Prisma.StudentStudyPlanInclude;
 
 function toPrismaJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -53,6 +75,30 @@ async function findStudent(studentId: string) {
       id: true,
     },
   });
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireApiRole(UserRole.TEACHER);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { id: studentId } = await context.params;
+  const student = await findStudent(studentId);
+
+  if (!student) {
+    return NextResponse.json({ message: "Ученик не найден" }, { status: 404 });
+  }
+
+  const plans = await prisma.studentStudyPlan.findMany({
+    where: { studentId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: planInclude,
+  });
+
+  return NextResponse.json({ plans: plans.map(toStudyPlanView) });
 }
 
 export async function POST(_request: Request, context: RouteContext) {
@@ -158,13 +204,7 @@ export async function POST(_request: Request, context: RouteContext) {
           actions: toPrismaJson(plan.actions),
           analyticsSnapshot,
         },
-        include: {
-          generation: {
-            select: {
-              provider: true,
-            },
-          },
-        },
+        include: planInclude,
       });
     });
 
@@ -186,6 +226,66 @@ export async function POST(_request: Request, context: RouteContext) {
       { status: 500 }
     );
   }
+}
+
+export async function PUT(request: Request, context: RouteContext) {
+  const auth = await requireApiRole(UserRole.TEACHER);
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { id: studentId } = await context.params;
+  const body: unknown = await request.json();
+  const parsed = editPlanSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        message:
+          parsed.error.issues[0]?.message ?? "Проверьте заполнение учебного плана",
+      },
+      { status: 400 }
+    );
+  }
+
+  const currentPlan = await prisma.studentStudyPlan.findFirst({
+    where: {
+      id: parsed.data.planId,
+      studentId,
+    },
+    select: {
+      id: true,
+      status: true,
+    },
+  });
+
+  if (!currentPlan) {
+    return NextResponse.json({ message: "План не найден" }, { status: 404 });
+  }
+
+  if (currentPlan.status !== StudyPlanStatus.DRAFT) {
+    return NextResponse.json(
+      { message: "Редактировать можно только черновик плана" },
+      { status: 409 }
+    );
+  }
+
+  const plan = parsed.data.plan;
+  const updatedPlan = await prisma.studentStudyPlan.update({
+    where: { id: currentPlan.id },
+    data: {
+      title: plan.title,
+      summary: plan.summary,
+      durationDays: plan.durationDays,
+      topics: toPrismaJson(plan.topics),
+      actions: toPrismaJson(plan.actions),
+      teacherEditedAt: new Date(),
+    },
+    include: planInclude,
+  });
+
+  return NextResponse.json({ plan: toStudyPlanView(updatedPlan) });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -260,13 +360,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         cancelledAt:
           nextStatus === StudyPlanStatus.CANCELLED ? now : undefined,
       },
-      include: {
-        generation: {
-          select: {
-            provider: true,
-          },
-        },
-      },
+      include: planInclude,
     });
   });
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { TrainerTaskSolver } from "@/components/student/TrainerTaskSolver";
 import { requireStudentPage } from "@/lib/access";
+import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ type TrainerNumberPageProps = {
   }>;
   searchParams: Promise<{
     task?: string;
+    plan?: string;
+    action?: string;
   }>;
 };
 
@@ -30,6 +33,7 @@ export default async function TrainerNumberPage({
   const routeParams = await params;
   const query = await searchParams;
   const egeNumber = Number(routeParams.egeNumber);
+  const requestedActionIndex = Number(query.action);
 
   if (
     !Number.isInteger(egeNumber) ||
@@ -59,7 +63,7 @@ export default async function TrainerNumberPage({
   const currentPosition =
     taskIds.findIndex((item) => item.id === currentTaskId) + 1;
 
-  const [task, numberAttempts] = await Promise.all([
+  const [task, numberAttempts, linkedPlan] = await Promise.all([
     prisma.task.findUnique({
       where: {
         id: currentTaskId,
@@ -95,11 +99,54 @@ export default async function TrainerNumberPage({
         isCorrect: true,
       },
     }),
+    query.plan && Number.isInteger(requestedActionIndex) && requestedActionIndex >= 0
+      ? prisma.studentStudyPlan.findFirst({
+          where: {
+            id: query.plan,
+            studentId: user.id,
+            status: "CONFIRMED",
+          },
+          select: {
+            id: true,
+            title: true,
+            durationDays: true,
+            topics: true,
+            actions: true,
+            practiceAttempts: {
+              where: { studyPlanActionIndex: requestedActionIndex },
+              select: { id: true },
+            },
+          },
+        })
+      : null,
   ]);
 
   if (!task) {
     notFound();
   }
+
+  const validatedLinkedPlan = linkedPlan
+    ? studyPlanSchema.safeParse({
+        title: linkedPlan.title,
+        summary: "Проверка активного этапа",
+        durationDays: linkedPlan.durationDays,
+        topics: linkedPlan.topics,
+        actions: linkedPlan.actions,
+      })
+    : null;
+  const linkedAction = validatedLinkedPlan?.success
+    ? validatedLinkedPlan.data.actions[requestedActionIndex]
+    : undefined;
+  const studyPlanContext =
+    linkedPlan && linkedAction?.egeNumber === egeNumber
+      ? {
+          planId: linkedPlan.id,
+          actionIndex: requestedActionIndex,
+          title: linkedPlan.title,
+          target: linkedAction.taskCount,
+          completedBefore: linkedPlan.practiceAttempts.length,
+        }
+      : undefined;
 
   const correctAttempts = numberAttempts.filter(
     (attempt) => attempt.isCorrect
@@ -143,6 +190,11 @@ export default async function TrainerNumberPage({
               <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-cyan-200">
                 тренажёр · №{egeNumber}
               </span>
+              {studyPlanContext ? (
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 font-mono text-[11px] text-emerald-200">
+                  мой план · {Math.min(studyPlanContext.completedBefore, studyPlanContext.target)}/{studyPlanContext.target}
+                </span>
+              ) : null}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-slate-300">
                 задача {currentPosition} из {taskIds.length}
               </span>
@@ -213,6 +265,7 @@ export default async function TrainerNumberPage({
             taskId={task.id}
             egeNumber={egeNumber}
             answerType={task.answerType}
+            studyPlanContext={studyPlanContext}
           />
         </div>
 

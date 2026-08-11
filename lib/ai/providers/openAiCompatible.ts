@@ -10,6 +10,7 @@ export type OpenAiCompatibleProviderOptions = {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
+  authorizationScheme?: "Bearer" | "Api-Key";
   providerName?: string;
   extraHeaders?: Record<string, string>;
   timeoutMs?: number;
@@ -91,6 +92,7 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
   private readonly endpoint: string;
   private readonly apiKey: string;
   private readonly model: string;
+  private readonly authorizationScheme: "Bearer" | "Api-Key";
   private readonly extraHeaders: Record<string, string>;
   private readonly timeoutMs: number;
   private readonly fetchImpl: FetchLike;
@@ -99,6 +101,7 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
     this.endpoint = `${normalizeBaseUrl(options.apiBaseUrl)}/chat/completions`;
     this.apiKey = options.apiKey;
     this.model = options.model;
+    this.authorizationScheme = options.authorizationScheme ?? "Bearer";
     this.extraHeaders = options.extraHeaders ?? {};
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
@@ -111,7 +114,7 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
       method: "POST",
       headers: {
         ...this.extraHeaders,
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `${this.authorizationScheme} ${this.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

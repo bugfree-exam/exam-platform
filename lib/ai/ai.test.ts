@@ -241,7 +241,7 @@ test("Yandex provider uses official API, scoped model and disabled logging", asy
   assert.equal(capturedUrl, "https://ai.api.cloud.yandex.net/v1/chat/completions");
 
   const headers = new Headers(capturedInit?.headers);
-  assert.equal(headers.get("authorization"), "Bearer test-secret");
+  assert.equal(headers.get("authorization"), "Api-Key test-secret");
   assert.equal(headers.get("openai-project"), "b1g-test-folder");
   assert.equal(headers.get("x-data-logging-enabled"), "false");
 

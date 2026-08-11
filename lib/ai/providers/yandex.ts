@@ -31,6 +31,7 @@ export class YandexStudyPlanProvider implements StudyPlanProvider {
       apiBaseUrl: YANDEX_AI_API_BASE_URL,
       apiKey: options.apiKey,
       model: `gpt://${options.folderId}/${options.model}`,
+      authorizationScheme: "Api-Key",
       providerName: this.name,
       extraHeaders: {
         "OpenAI-Project": options.folderId,

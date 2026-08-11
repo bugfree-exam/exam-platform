@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { analyzeStudentLearning } from "./analytics";
+import { parseStudentLearningAnalytics } from "./analyticsSchema";
 import { generateValidatedStudyPlan } from "./generateStudyPlan";
 import { MockStudyPlanProvider } from "./providers/mock";
+import { getNextStudyPlanStatus } from "./studyPlanLifecycle";
 import type { LearningAnswer, StudentLearningAnalytics } from "./types";
 
 const day = 24 * 60 * 60 * 1000;
@@ -97,4 +99,24 @@ test("rejects unexpected fields and oversized provider output", async () => {
   };
 
   await assert.rejects(() => generateValidatedStudyPlan(unsafeProvider, emptyAnalytics));
+});
+
+test("validates stored analytics and rejects personal data", () => {
+  const analytics = analyzeStudentLearning({ answers: [], variants: [] });
+
+  assert.deepEqual(parseStudentLearningAnalytics(analytics), analytics);
+  assert.throws(() =>
+    parseStudentLearningAnalytics({
+      ...analytics,
+      studentEmail: "student@example.com",
+    })
+  );
+});
+
+test("allows only safe study plan status transitions", () => {
+  assert.equal(getNextStudyPlanStatus("DRAFT", "CONFIRM"), "CONFIRMED");
+  assert.equal(getNextStudyPlanStatus("DRAFT", "CANCEL"), "CANCELLED");
+  assert.equal(getNextStudyPlanStatus("CONFIRMED", "CANCEL"), "CANCELLED");
+  assert.throws(() => getNextStudyPlanStatus("CONFIRMED", "CONFIRM"));
+  assert.throws(() => getNextStudyPlanStatus("CANCELLED", "CONFIRM"));
 });

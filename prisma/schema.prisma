@@ -80,6 +80,18 @@ enum WebinarMaterialType {
   OTHER
 }
 
+enum StudyPlanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum AiGenerationStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -96,6 +108,8 @@ model User {
   variantAttempts     VariantAttempt[]
   variantAssignments  VariantAssignment[]
   reminderDeliveries  ReminderDelivery[]
+  studyPlans           StudentStudyPlan[]
+  aiGenerations        AiGeneration[]
 
   lastActivityAt DateTime?
 
@@ -113,6 +127,47 @@ model User {
   telegramLinkTokenExpiresAt   DateTime?
 
   @@index([role, studentStatus])
+}
+
+model StudentStudyPlan {
+  id                String          @id @default(cuid())
+  studentId         String
+  generationId      String          @unique
+  status            StudyPlanStatus @default(DRAFT)
+  title             String
+  summary           String
+  durationDays      Int
+  topics            Json
+  actions           Json
+  analyticsSnapshot Json
+  confirmedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  generation AiGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+  @@index([studentId, status])
+}
+
+model AiGeneration {
+  id                String             @id @default(cuid())
+  studentId         String
+  provider          String
+  status            AiGenerationStatus @default(PENDING)
+  analyticsSnapshot Json
+  outputSnapshot    Json?
+  errorMessage      String?
+  startedAt         DateTime           @default(now())
+  completedAt       DateTime?
+
+  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studyPlan StudentStudyPlan?
+
+  @@index([studentId, startedAt])
+  @@index([status, startedAt])
 }
 
 model Task {

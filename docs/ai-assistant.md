@@ -14,22 +14,22 @@ AI_PROVIDER=mock
 
 Он подходит для разработки, автоматических тестов и проверки интерфейса.
 
-## Подключение совместимого API
+## Подключение YandexGPT
 
-AI Assistant поддерживает серверный API, совместимый с методом
-`POST /chat/completions`:
+Для тестовой работы используется YandexGPT через Yandex AI Studio:
 
 ```env
-AI_PROVIDER=openai-compatible
-AI_API_BASE_URL=https://provider.example/v1
-AI_API_KEY=replace_with_provider_api_key
-AI_MODEL=provider-model-name
+AI_PROVIDER=yandex
+YANDEX_AI_API_KEY=replace_with_yandex_api_key
+YANDEX_FOLDER_ID=replace_with_yandex_folder_id
+YANDEX_AI_MODEL=yandexgpt/latest
 AI_REQUEST_TIMEOUT_MS=30000
 ```
 
 Ключ хранится только в серверном `.env` и не имеет префикса `NEXT_PUBLIC_`,
-поэтому не попадает в браузер. Внешний адрес должен использовать HTTPS;
-HTTP разрешён только для локального тестового сервера.
+поэтому не попадает в браузер. Провайдер всегда обращается к официальному
+HTTPS API Yandex AI Studio. В запросе также отключается сохранение данных на
+стороне провайдера через `x-data-logging-enabled: false`.
 
 После изменения `.env` перезапустите `npm run dev`.
 
@@ -44,6 +44,9 @@ HTTP разрешён только для локального тестовог�
 7. Неудачная внешняя генерация и успешный fallback сохраняются в истории
    раздельно.
 8. Учитель видит, каким провайдером создан конкретный план.
+
+На текущем этапе доступны только `yandex` и `mock`. Если YandexGPT недоступен
+или возвращает некорректный план, система автоматически использует mock.
 
 План по-прежнему создаётся только вручную учителем, не показывается ученику и
 не выдаёт задания автоматически.

@@ -1,17 +1,17 @@
 import { z } from "zod";
 
 import { MockStudyPlanProvider } from "./mock";
-import { OpenAiCompatibleStudyPlanProvider } from "./openAiCompatible";
 import type { StudyPlanProvider } from "./provider";
+import { YandexStudyPlanProvider } from "./yandex";
 
 const providerConfigSchema = z.discriminatedUnion("provider", [
   z.object({ provider: z.literal("mock") }).strict(),
   z
     .object({
-      provider: z.literal("openai-compatible"),
-      apiBaseUrl: z.string().url(),
+      provider: z.literal("yandex"),
       apiKey: z.string().min(1),
-      model: z.string().min(1).max(120),
+      folderId: z.string().min(1).max(120),
+      model: z.string().min(1).max(160),
       timeoutMs: z.number().int().min(1_000).max(120_000),
     })
     .strict(),
@@ -30,9 +30,9 @@ export function createConfiguredStudyPlanProvider(
       ? { provider }
       : {
           provider,
-          apiBaseUrl: environment.AI_API_BASE_URL,
-          apiKey: environment.AI_API_KEY,
-          model: environment.AI_MODEL,
+          apiKey: environment.YANDEX_AI_API_KEY,
+          folderId: environment.YANDEX_FOLDER_ID,
+          model: environment.YANDEX_AI_MODEL?.trim() || "yandexgpt/latest",
           timeoutMs: Number(environment.AI_REQUEST_TIMEOUT_MS || "30000"),
         };
 
@@ -45,9 +45,9 @@ export function createConfiguredStudyPlanProvider(
     return new MockStudyPlanProvider();
   }
 
-  return new OpenAiCompatibleStudyPlanProvider({
-    apiBaseUrl: parsed.data.apiBaseUrl,
+  return new YandexStudyPlanProvider({
     apiKey: parsed.data.apiKey,
+    folderId: parsed.data.folderId,
     model: parsed.data.model,
     timeoutMs: parsed.data.timeoutMs,
     fetchImpl,

@@ -9,6 +9,7 @@ import { generateStudyPlanWithFallback } from "./generateStudyPlanWithFallback";
 import { createConfiguredStudyPlanProvider } from "./providers/config";
 import { MockStudyPlanProvider } from "./providers/mock";
 import { OpenAiCompatibleStudyPlanProvider } from "./providers/openAiCompatible";
+import { YandexStudyPlanProvider } from "./providers/yandex";
 import { getNextStudyPlanStatus } from "./studyPlanLifecycle";
 import type { LearningAnswer, StudentLearningAnalytics } from "./types";
 
@@ -161,14 +162,102 @@ test("demo profiles reproduce the intended learning scenarios", () => {
   );
 });
 
-test("uses mock by default and requires complete external provider settings", () => {
+test("uses mock by default and requires complete Yandex settings", () => {
   assert.equal(createConfiguredStudyPlanProvider({}).name, "mock");
+  assert.equal(
+    createConfiguredStudyPlanProvider({
+      AI_PROVIDER: "yandex",
+      YANDEX_AI_API_KEY: "test-secret",
+      YANDEX_FOLDER_ID: "b1g-test-folder",
+    }).name,
+    "yandex:yandexgpt/latest"
+  );
+  assert.throws(() =>
+    createConfiguredStudyPlanProvider({
+      AI_PROVIDER: "yandex",
+      YANDEX_FOLDER_ID: "folder-id",
+    })
+  );
   assert.throws(() =>
     createConfiguredStudyPlanProvider({
       AI_PROVIDER: "openai-compatible",
-      AI_API_BASE_URL: "https://example.com/v1",
+      AI_API_KEY: "unused",
     })
   );
+});
+
+test("Yandex provider uses official API, scoped model and disabled logging", async () => {
+  const analytics = analyzeStudentLearning({
+    answers: answers(5, [false, true, false]),
+    variants: [],
+  });
+  let capturedUrl = "";
+  let capturedInit: RequestInit | undefined;
+
+  const provider = new YandexStudyPlanProvider({
+    apiKey: "test-secret",
+    folderId: "b1g-test-folder",
+    model: "yandexgpt/latest",
+    fetchImpl: async (input, init) => {
+      capturedUrl = String(input);
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  title: "План по заданию №5",
+                  summary: "Тестовый план YandexGPT",
+                  durationDays: 2,
+                  topics: [
+                    {
+                      egeNumber: 5,
+                      priority: "HIGH",
+                      reason: "Нужно закрепить алгоритм",
+                    },
+                  ],
+                  actions: [
+                    {
+                      day: 1,
+                      egeNumber: 5,
+                      taskCount: 4,
+                      goal: "Отработать базовые случаи",
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    },
+  });
+
+  const plan = await generateValidatedStudyPlan(provider, analytics);
+  assert.equal(provider.name, "yandex:yandexgpt/latest");
+  assert.equal(plan.topics[0].egeNumber, 5);
+  assert.equal(capturedUrl, "https://ai.api.cloud.yandex.net/v1/chat/completions");
+
+  const headers = new Headers(capturedInit?.headers);
+  assert.equal(headers.get("authorization"), "Bearer test-secret");
+  assert.equal(headers.get("openai-project"), "b1g-test-folder");
+  assert.equal(headers.get("x-data-logging-enabled"), "false");
+
+  const requestBody = JSON.parse(String(capturedInit?.body)) as {
+    model: string;
+    messages: Array<{ role: string; content: string }>;
+  };
+  assert.equal(
+    requestBody.model,
+    "gpt://b1g-test-folder/yandexgpt/latest"
+  );
+  const userMessage = requestBody.messages.find(
+    (message) => message.role === "user"
+  );
+  assert.ok(userMessage);
+  assert.deepEqual(JSON.parse(userMessage.content), { analytics });
 });
 
 test("external provider sends only validated anonymized analytics", async () => {
@@ -246,7 +335,7 @@ test("falls back to validated mock plan when external provider fails", async () 
     variants: [],
   });
   const unavailableProvider = {
-    name: "openai-compatible:unavailable",
+    name: "yandex:unavailable",
     async generatePlan() {
       throw new Error("Provider unavailable");
     },

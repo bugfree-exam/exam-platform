@@ -16,6 +16,9 @@ export type StudyPlanView = StudyPlan & {
 export function getStudyPlanProviderLabel(provider: string) {
   if (provider === "mock") return "Mock (локально)";
   if (provider === "mock:fallback") return "Mock (резервный режим)";
+  if (provider.startsWith("yandex:")) {
+    return `YandexGPT · ${provider.slice("yandex:".length)}`;
+  }
   if (provider.startsWith("openai-compatible:")) {
     return `AI · ${provider.slice("openai-compatible:".length)}`;
   }

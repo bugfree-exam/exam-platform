@@ -10,6 +10,8 @@ export type OpenAiCompatibleProviderOptions = {
   apiBaseUrl: string;
   apiKey: string;
   model: string;
+  providerName?: string;
+  extraHeaders?: Record<string, string>;
   timeoutMs?: number;
   fetchImpl?: FetchLike;
 };
@@ -89,6 +91,7 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
   private readonly endpoint: string;
   private readonly apiKey: string;
   private readonly model: string;
+  private readonly extraHeaders: Record<string, string>;
   private readonly timeoutMs: number;
   private readonly fetchImpl: FetchLike;
 
@@ -96,9 +99,10 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
     this.endpoint = `${normalizeBaseUrl(options.apiBaseUrl)}/chat/completions`;
     this.apiKey = options.apiKey;
     this.model = options.model;
+    this.extraHeaders = options.extraHeaders ?? {};
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
-    this.name = `openai-compatible:${options.model}`;
+    this.name = options.providerName ?? `openai-compatible:${options.model}`;
   }
 
   async generatePlan(analytics: StudentLearningAnalytics): Promise<unknown> {
@@ -106,6 +110,7 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
     const response = await this.fetchImpl(this.endpoint, {
       method: "POST",
       headers: {
+        ...this.extraHeaders,
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       },

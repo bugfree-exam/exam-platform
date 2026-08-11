@@ -87,6 +87,32 @@ function readAssistantContent(candidate: unknown): string {
   return message.content;
 }
 
+function parseAssistantJson(content: string): unknown {
+  const trimmed = content.trim();
+  const candidates = [trimmed];
+  const fencedJson = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+
+  if (fencedJson?.[1]) {
+    candidates.push(fencedJson[1].trim());
+  }
+
+  const objectStart = trimmed.indexOf("{");
+  const objectEnd = trimmed.lastIndexOf("}");
+  if (objectStart !== -1 && objectEnd > objectStart) {
+    candidates.push(trimmed.slice(objectStart, objectEnd + 1));
+  }
+
+  for (const candidate of new Set(candidates)) {
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      // Try the next safe representation before rejecting the response.
+    }
+  }
+
+  throw new Error("AI-провайдер вернул план не в формате JSON");
+}
+
 export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
   readonly name: string;
   private readonly endpoint: string;
@@ -144,11 +170,6 @@ export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {
       throw new Error("AI-провайдер вернул не JSON");
     }
 
-    const content = readAssistantContent(payload);
-    try {
-      return JSON.parse(content) as unknown;
-    } catch {
-      throw new Error("AI-провайдер вернул план не в формате JSON");
-    }
+    return parseAssistantJson(readAssistantContent(payload));
   }
 }

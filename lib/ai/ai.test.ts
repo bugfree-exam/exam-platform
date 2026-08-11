@@ -206,7 +206,7 @@ test("Yandex provider uses official API, scoped model and disabled logging", asy
           choices: [
             {
               message: {
-                content: JSON.stringify({
+                content: `\`\`\`json\n${JSON.stringify({
                   title: "План по заданию №5",
                   summary: "Тестовый план YandexGPT",
                   durationDays: 2,
@@ -225,7 +225,7 @@ test("Yandex provider uses official API, scoped model and disabled logging", asy
                       goal: "Отработать базовые случаи",
                     },
                   ],
-                }),
+                })}\n\`\`\``,
               },
             },
           ],

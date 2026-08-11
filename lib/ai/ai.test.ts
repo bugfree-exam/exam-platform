@@ -147,6 +147,28 @@ test("validates stored analytics and rejects personal data", () => {
   );
 });
 
+test("reads analytics saved before skill mastery fields were introduced", () => {
+  const analytics = analyzeStudentLearning({
+    answers: answers(12, [true, false, true]),
+    variants: [],
+  });
+  const legacyAnalytics = {
+    ...analytics,
+    topics: analytics.topics.map((topic) =>
+      Object.fromEntries(
+        Object.entries(topic).filter(
+          ([key]) => key !== "skillBreakdown" && key !== "errorCauses"
+        )
+      )
+    ),
+  };
+
+  const parsed = parseStudentLearningAnalytics(legacyAnalytics);
+
+  assert.deepEqual(parsed.topics[0].skillBreakdown, []);
+  assert.deepEqual(parsed.topics[0].errorCauses, {});
+});
+
 test("allows only safe study plan status transitions", () => {
   assert.equal(getNextStudyPlanStatus("DRAFT", "CONFIRM"), "CONFIRMED");
   assert.equal(getNextStudyPlanStatus("DRAFT", "CANCEL"), "CANCELLED");

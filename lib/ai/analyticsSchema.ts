@@ -24,7 +24,8 @@ const topicLearningAnalyticsSchema = z
           })
           .strict()
       )
-      .max(50),
+      .max(50)
+      .default([]),
     errorCauses: z
       .object({
         THEORY_GAP: z.number().int().nonnegative().optional(),
@@ -36,7 +37,8 @@ const topicLearningAnalyticsSchema = z
         TIME_PRESSURE: z.number().int().nonnegative().optional(),
         OTHER: z.number().int().nonnegative().optional(),
       })
-      .strict(),
+      .strict()
+      .default({}),
     category: z.enum([
       "INSUFFICIENT_DATA",
       "CRITICAL_GAP",

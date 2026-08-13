@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { getTelegramConfig } from "@/lib/telegram";
 
 import "./globals.css";
+import "./mobile-base.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

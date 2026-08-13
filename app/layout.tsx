@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { getTelegramConfig } from "@/lib/telegram";
@@ -23,6 +23,18 @@ export const metadata: Metadata = {
   description:
     "Платформа курса подготовки к ЕГЭ по информатике: домашние задания, вебинары, материалы и прогресс.",
   applicationName: "Экзамен без багов",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Экзамен без багов",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#092535",
 };
 
 export default function RootLayout({
@@ -38,7 +50,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body
-        className="min-h-full flex flex-col"
+        className="responsive-page-shell min-h-full flex flex-col"
         data-telegram-enabled={telegramEnabled ? "true" : "false"}
       >
         {children}

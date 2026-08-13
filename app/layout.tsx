@@ -5,6 +5,7 @@ import { getTelegramConfig } from "@/lib/telegram";
 
 import "./globals.css";
 import "./mobile-base.css";
+import "./mobile-compact.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

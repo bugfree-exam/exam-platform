@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
 type NavItem = {
   href: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   exact?: boolean;
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type AnswerType =
   | "TEXT"
@@ -451,8 +451,53 @@ export function HomeworkSolveForm({
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
 
   const visibleResult = submitResult ?? previousAttempt;
+  const draftKey = `exam-platform:homework-draft:${homeworkId}`;
+
+  useEffect(() => {
+    if (readOnly) {
+      setDraftLoaded(true);
+      return;
+    }
+
+    try {
+      const rawDraft = window.localStorage.getItem(draftKey);
+
+      if (rawDraft) {
+        const parsedDraft = JSON.parse(rawDraft) as Record<string, unknown>;
+        const restoredAnswers: Record<string, string> = {};
+        const validTaskIds = new Set(tasks.map((task) => task.id));
+
+        for (const [taskId, value] of Object.entries(parsedDraft)) {
+          if (validTaskIds.has(taskId) && typeof value === "string") {
+            restoredAnswers[taskId] = value;
+          }
+        }
+
+        setAnswers((current) => ({ ...current, ...restoredAnswers }));
+      }
+    } catch {
+      // Поврежденный локальный черновик не должен мешать решению ДЗ.
+    } finally {
+      setDraftLoaded(true);
+    }
+  }, [draftKey, readOnly, tasks]);
+
+  useEffect(() => {
+    if (!draftLoaded || readOnly) return;
+
+    const timeout = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify(answers));
+      } catch {
+        // Если браузер запретил localStorage, форма продолжает работать как раньше.
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [answers, draftKey, draftLoaded, readOnly]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -476,6 +521,12 @@ export function HomeworkSolveForm({
       if (!response.ok) {
         setError(data.message || "Не удалось отправить домашнее задание");
         return;
+      }
+
+      try {
+        window.localStorage.removeItem(draftKey);
+      } catch {
+        // Успешная отправка важнее очистки локального черновика.
       }
 
       setSubmitResult(data.attempt);
@@ -514,6 +565,9 @@ export function HomeworkSolveForm({
             {visibleResult
               ? "Можешь исправить ответы и отправить новую попытку. В результатах сохранится новая сдача."
               : "Заполни ответы на все задачи и отправь работу на проверку."}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-cyan-700">
+            Введённые ответы автоматически сохраняются в этом браузере. Можно закрыть страницу и продолжить позже на этом устройстве.
           </p>
         </div>
 

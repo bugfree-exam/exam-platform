@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 
 import { WebinarForm } from "@/components/webinars/WebinarForm";
 import { prisma } from "@/lib/prisma";
+import {
+  getHomeworkIdFromWebinarPracticeUrl,
+  isWebinarPracticeUrl,
+} from "@/lib/webinarPractice";
 
 type EditWebinarPageProps = {
   params: Promise<{
@@ -11,9 +15,7 @@ type EditWebinarPageProps = {
 };
 
 function formatDateTimeLocal(date: Date | null) {
-  if (!date) {
-    return "";
-  }
+  if (!date) return "";
 
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -27,22 +29,33 @@ function formatDateTimeLocal(date: Date | null) {
 export default async function EditWebinarPage({ params }: EditWebinarPageProps) {
   const { id } = await params;
 
-  const webinar = await prisma.webinar.findUnique({
-    where: {
-      id,
-    },
-    include: {
-      materials: {
-        orderBy: {
-          order: "asc",
+  const [webinar, homeworkOptions] = await Promise.all([
+    prisma.webinar.findUnique({
+      where: { id },
+      include: {
+        materials: {
+          orderBy: { order: "asc" },
         },
       },
-    },
-  });
+    }),
+    prisma.homework.findMany({
+      where: { status: { not: "ARCHIVED" } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, status: true },
+    }),
+  ]);
 
-  if (!webinar) {
-    notFound();
-  }
+  if (!webinar) notFound();
+
+  const practiceMaterial = webinar.materials.find((material) =>
+    isWebinarPracticeUrl(material.url)
+  );
+  const practiceHomeworkId = practiceMaterial
+    ? getHomeworkIdFromWebinarPracticeUrl(practiceMaterial.url) ?? ""
+    : "";
+  const regularMaterials = webinar.materials.filter(
+    (material) => !isWebinarPracticeUrl(material.url)
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-8">
@@ -60,12 +73,13 @@ export default async function EditWebinarPage({ params }: EditWebinarPageProps) 
           </h1>
 
           <p className="mt-2 text-slate-600">
-            Измени видео, конспект, материалы и статус публикации.
+            Измени видео, конспект, материалы, задания для отработки и статус публикации.
           </p>
         </header>
 
         <WebinarForm
           mode="edit"
+          homeworkOptions={homeworkOptions}
           initialData={{
             id: webinar.id,
             title: webinar.title,
@@ -78,7 +92,8 @@ export default async function EditWebinarPage({ params }: EditWebinarPageProps) 
             status: webinar.status,
             topic: webinar.topic ?? "",
             egeNumber: webinar.egeNumber ? String(webinar.egeNumber) : "",
-            materials: webinar.materials.map((material) => ({
+            practiceHomeworkId,
+            materials: regularMaterials.map((material) => ({
               title: material.title,
               url: material.url,
               type: material.type,

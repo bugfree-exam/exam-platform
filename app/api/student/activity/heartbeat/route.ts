@@ -27,39 +27,35 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const { sessionId, path } = parsed.data;
+  const existing = await prisma.studentActivitySession.findUnique({
+    where: { browserSessionId: sessionId },
+    select: { id: true, studentId: true, lastPath: true },
+  });
+
+  if (existing && existing.studentId !== auth.user.id) {
+    return NextResponse.json({ message: "Конфликт сессии" }, { status: 409 });
+  }
 
   await prisma.$transaction([
-    prisma.$executeRaw`
-      INSERT INTO "StudentActivitySession" (
-        "id",
-        "studentId",
-        "browserSessionId",
-        "startedAt",
-        "lastSeenAt",
-        "lastPath",
-        "pageViews",
-        "createdAt"
-      )
-      VALUES (
-        ${crypto.randomUUID()},
-        ${auth.user.id},
-        ${sessionId},
-        ${now},
-        ${now},
-        ${path},
-        1,
-        ${now}
-      )
-      ON CONFLICT ("browserSessionId") DO UPDATE SET
-        "lastSeenAt" = EXCLUDED."lastSeenAt",
-        "pageViews" = CASE
-          WHEN "StudentActivitySession"."lastPath" IS DISTINCT FROM EXCLUDED."lastPath"
-            THEN "StudentActivitySession"."pageViews" + 1
-          ELSE "StudentActivitySession"."pageViews"
-        END,
-        "lastPath" = EXCLUDED."lastPath"
-      WHERE "StudentActivitySession"."studentId" = EXCLUDED."studentId"
-    `,
+    existing
+      ? prisma.studentActivitySession.update({
+          where: { id: existing.id },
+          data: {
+            lastSeenAt: now,
+            lastPath: path,
+            ...(existing.lastPath !== path ? { pageViews: { increment: 1 } } : {}),
+          },
+        })
+      : prisma.studentActivitySession.create({
+          data: {
+            studentId: auth.user.id,
+            browserSessionId: sessionId,
+            startedAt: now,
+            lastSeenAt: now,
+            lastPath: path,
+            pageViews: 1,
+          },
+        }),
     prisma.user.update({
       where: { id: auth.user.id },
       data: { lastActivityAt: now },

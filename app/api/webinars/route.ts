@@ -22,14 +22,8 @@ const materialTypeSchema = z.enum([
   "CODE",
   "OTHER",
 ]);
-
 const webinarStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
-
-const webinarVideoProviderSchema = z.enum([
-  "RUTUBE",
-  "YANDEX_DISK",
-  "EXTERNAL",
-]);
+const webinarVideoProviderSchema = z.enum(["RUTUBE", "YANDEX_DISK", "EXTERNAL"]);
 
 const materialSchema = z.object({
   title: z.string().min(1, "Введите название материала").max(200),
@@ -55,69 +49,41 @@ const createWebinarSchema = z.object({
 export async function POST(request: Request) {
   try {
     const auth = await requireApiRole(UserRole.TEACHER);
-
-    if (!auth.ok) {
-      return auth.response;
-    }
+    if (!auth.ok) return auth.response;
 
     const body = await request.json();
     const parsed = createWebinarSchema.safeParse(body);
-
     if (!parsed.success) {
       return NextResponse.json(
-        {
-          message: "Некорректные данные вебинара",
-          errors: parsed.error.flatten(),
-        },
+        { message: "Некорректные данные вебинара", errors: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
     const contentHtml = sanitizeEditorHtml(parsed.data.contentHtml);
-
     if (!hasEditorContent(contentHtml)) {
-      return NextResponse.json(
-        { message: "Добавьте конспект вебинара" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Добавьте конспект вебинара" }, { status: 400 });
     }
 
-    const eventDate = parsed.data.eventDate
-      ? new Date(parsed.data.eventDate)
-      : null;
-
+    const eventDate = parsed.data.eventDate ? new Date(parsed.data.eventDate) : null;
     if (parsed.data.eventDate && Number.isNaN(eventDate?.getTime())) {
-      return NextResponse.json(
-        { message: "Некорректная дата вебинара" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Некорректная дата вебинара" }, { status: 400 });
     }
 
-    const egeNumber = parsed.data.egeNumber
-      ? Number(parsed.data.egeNumber)
-      : null;
-
+    const egeNumber = parsed.data.egeNumber ? Number(parsed.data.egeNumber) : null;
     if (
       egeNumber !== null &&
       (!Number.isInteger(egeNumber) || egeNumber < 1 || egeNumber > 27)
     ) {
-      return NextResponse.json(
-        { message: "Номер ЕГЭ должен быть от 1 до 27" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Номер ЕГЭ должен быть от 1 до 27" }, { status: 400 });
     }
 
     const practiceHomeworkId = parsed.data.practiceHomeworkId?.trim() || null;
-
     if (practiceHomeworkId) {
       const practiceHomework = await prisma.homework.findFirst({
-        where: {
-          id: practiceHomeworkId,
-          status: { not: "ARCHIVED" },
-        },
+        where: { id: practiceHomeworkId, status: { not: "ARCHIVED" } },
         select: { id: true },
       });
-
       if (!practiceHomework) {
         return NextResponse.json(
           { message: "Выбранное ДЗ для отработки не найдено или находится в архиве" },
@@ -131,50 +97,53 @@ export async function POST(request: Request) {
       videoUrl: parsed.data.videoUrl,
       videoEmbedUrl: parsed.data.videoEmbedUrl ?? null,
     });
-
     const regularMaterials = parsed.data.materials.filter(
       (material) => !isWebinarPracticeUrl(material.url)
     );
-    const materials = practiceHomeworkId
-      ? [
-          ...regularMaterials,
-          {
-            title: WEBINAR_PRACTICE_MATERIAL_TITLE,
-            url: getWebinarPracticeUrl(practiceHomeworkId),
-            type: WebinarMaterialType.LINK,
-          },
-        ]
-      : regularMaterials;
 
-    const webinar = await prisma.webinar.create({
-      data: {
-        title: parsed.data.title.trim(),
-        description: parsed.data.description?.trim() || null,
-        contentHtml,
-        videoUrl: parsed.data.videoUrl.trim(),
-        videoEmbedUrl,
-        videoProvider: parsed.data.videoProvider,
-        status: parsed.data.status,
-        eventDate,
-        topic: parsed.data.topic?.trim() || null,
-        egeNumber,
-        publishedAt:
-          parsed.data.status === "PUBLISHED" ? new Date() : null,
-        materials: {
-          create: materials.map((material, index) => ({
-            title: material.title.trim(),
-            url: material.url.trim(),
-            type: material.type,
-            order: index + 1,
-          })),
+    const webinar = await prisma.$transaction(async (tx) => {
+      const created = await tx.webinar.create({
+        data: {
+          title: parsed.data.title.trim(),
+          description: parsed.data.description?.trim() || null,
+          contentHtml,
+          videoUrl: parsed.data.videoUrl.trim(),
+          videoEmbedUrl,
+          videoProvider: parsed.data.videoProvider,
+          status: parsed.data.status,
+          eventDate,
+          topic: parsed.data.topic?.trim() || null,
+          egeNumber,
+          publishedAt: parsed.data.status === "PUBLISHED" ? new Date() : null,
+          materials: {
+            create: regularMaterials.map((material, index) => ({
+              title: material.title.trim(),
+              url: material.url.trim(),
+              type: material.type,
+              order: index + (practiceHomeworkId ? 2 : 1),
+            })),
+          },
         },
-      },
+      });
+
+      if (practiceHomeworkId) {
+        await tx.webinarMaterial.create({
+          data: {
+            webinarId: created.id,
+            title: WEBINAR_PRACTICE_MATERIAL_TITLE,
+            url: getWebinarPracticeUrl(created.id, practiceHomeworkId),
+            type: WebinarMaterialType.LINK,
+            order: 1,
+          },
+        });
+      }
+
+      return created;
     });
 
     return NextResponse.json({ webinar });
   } catch (error) {
     console.error("[WEBINARS_POST]", error);
-
     return NextResponse.json(
       { message: "Ошибка сервера при создании вебинара" },
       { status: 500 }

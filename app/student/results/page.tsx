@@ -76,9 +76,10 @@ function formatDate(value: Date) {
   }).format(value);
 }
 
-function sourceLabel(source: "HOMEWORK" | "PRACTICE" | "VARIANT") {
+function sourceLabel(source: "HOMEWORK" | "PRACTICE" | "VARIANT" | "DIAGNOSTIC") {
   if (source === "HOMEWORK") return "ДЗ";
   if (source === "VARIANT") return "Вариант";
+  if (source === "DIAGNOSTIC") return "Диагностика";
   return "Тренажёр";
 }
 

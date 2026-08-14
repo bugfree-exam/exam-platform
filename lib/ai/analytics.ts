@@ -155,6 +155,7 @@ export function analyzeStudentLearning(
       HOMEWORK: eligibleAnswers.filter((answer) => answer.source === "HOMEWORK").length,
       PRACTICE: eligibleAnswers.filter((answer) => answer.source === "PRACTICE").length,
       VARIANT: eligibleAnswers.filter((answer) => answer.source === "VARIANT").length,
+      DIAGNOSTIC: eligibleAnswers.filter((answer) => answer.source === "DIAGNOSTIC").length,
     },
     topics,
     variants: {

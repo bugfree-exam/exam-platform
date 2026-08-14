@@ -1,6 +1,6 @@
 import { MASTERY_POLICY, type MasteryState } from "@/lib/mastery";
 
-export type AttemptSource = "HOMEWORK" | "PRACTICE" | "VARIANT";
+export type AttemptSource = "HOMEWORK" | "PRACTICE" | "VARIANT" | "DIAGNOSTIC";
 
 export type LearningAnswer = {
   taskId?: string;

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { StudentAccessCard } from "@/components/teacher/StudentAccessCard";
 import { StudentAccountActions } from "@/components/teacher/StudentAccountActions";
 import { StudentStudyPlanCard } from "@/components/teacher/StudentStudyPlanCard";
+import { StudentHelpRequests } from "@/components/teacher/StudentHelpRequests";
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { requireTeacherPage } from "@/lib/access";
 import { toStudyPlanView } from "@/lib/ai/studyPlanView";
@@ -171,6 +172,27 @@ export default async function TeacherStudentPage({
             },
           },
         },
+      },
+      preparationProfile: true,
+      diagnosticAttempts: {
+        take: 1,
+        orderBy: { startedAt: "desc" },
+      },
+      roadmaps: {
+        where: { status: "ACTIVE" },
+        take: 1,
+        orderBy: { generatedAt: "desc" },
+        include: { milestones: { orderBy: { order: "asc" } } },
+      },
+      queueDecisions: {
+        where: { state: "HELP_REQUESTED" },
+        orderBy: { helpRequestedAt: "desc" },
+        take: 10,
+      },
+      recoveryPeriods: {
+        where: { status: "ACTIVE", endsAt: { gte: new Date() } },
+        orderBy: { startedAt: "desc" },
+        take: 1,
       },
     },
   });
@@ -365,6 +387,23 @@ export default async function TeacherStudentPage({
               {totalCorrectAnswers} из {totalAnswers} ответов верны
             </div>
           </article>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">Самостоятельный маршрут</h2>
+              <p className="mt-1 text-sm text-slate-500">Стартовые настройки, диагностика и сигналы, где ученику нужна поддержка.</p>
+            </div>
+            {student.recoveryPeriods[0] ? <span className="rounded-full bg-fuchsia-100 px-3 py-1.5 text-xs font-bold text-fuchsia-800">Режим восстановления до {new Intl.DateTimeFormat("ru-RU").format(student.recoveryPeriods[0].endsAt)}</span> : null}
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs font-semibold text-slate-500">Цель и ресурс</div>{student.preparationProfile ? <><div className="mt-2 text-xl font-bold">{student.preparationProfile.targetScore}+ баллов</div><div className="mt-1 text-xs text-slate-500">{Math.round(student.preparationProfile.weeklyMinutes / 60)} ч/нед. · {student.preparationProfile.sessionMinutes} мин/занятие</div></> : <div className="mt-2 text-sm font-semibold text-amber-700">Онбординг не завершён</div>}</div>
+            <div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs font-semibold text-slate-500">Диагностика</div>{student.diagnosticAttempts[0]?.status === "COMPLETED" ? <><div className="mt-2 text-xl font-bold">{student.diagnosticAttempts[0].score}/{student.diagnosticAttempts[0].maxScore}</div><div className="mt-1 text-xs text-slate-500">Точка старта зафиксирована</div></> : <div className="mt-2 text-sm font-semibold text-amber-700">{student.diagnosticAttempts[0] ? "Начата, но не завершена" : "Ещё не начата"}</div>}</div>
+            <div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs font-semibold text-slate-500">Глобальный маршрут</div>{student.roadmaps[0] ? <><div className="mt-2 text-xl font-bold">{student.roadmaps[0].milestones.length} этапов</div><div className="mt-1 text-xs text-slate-500">До {new Intl.DateTimeFormat("ru-RU").format(student.roadmaps[0].examDate)}</div></> : <div className="mt-2 text-sm font-semibold text-amber-700">Пока не построен</div>}</div>
+            <StudentHelpRequests studentId={student.id} requests={student.queueDecisions.map((decision) => ({ id: decision.id, note: decision.note }))} />
+          </div>
+          {student.recoveryPeriods[0] ? <div className="mt-4 rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-4 text-sm text-fuchsia-900"><strong>Одна цель недели:</strong> {student.recoveryPeriods[0].mainGoal} · доступный ресурс {student.recoveryPeriods[0].weeklyMinutes} мин/нед. Проверка режима — {formatDateTime(student.recoveryPeriods[0].reviewAt)}.</div> : null}
         </section>
 
         <StudentStudyPlanCard

@@ -59,5 +59,8 @@ jobs:
       - name: P0 methodology tests
         run: npm run test:p0
 
+      - name: P1 student journey tests
+        run: npm run test:p1
+
       - name: Production build
         run: npm run build

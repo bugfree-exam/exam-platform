@@ -252,6 +252,18 @@ export async function POST(request: Request, context: RouteContext) {
       },
     });
 
+    if (checkedAnswer.isCorrect && countsForMastery) {
+      await prisma.studentErrorCorrection.updateMany({
+        where: {
+          studentId: auth.user.id,
+          status: "CORRECTED",
+          scheduledFor: { lte: attempt.createdAt },
+          taskRevision: { egeNumber: task.egeNumber },
+        },
+        data: { status: "VERIFIED" },
+      });
+    }
+
     const taskIds = await prisma.task.findMany({
       where: {
         egeNumber: task.egeNumber,

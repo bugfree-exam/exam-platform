@@ -7,7 +7,7 @@ export async function getKnownTaskIds(
   taskIds?: string[]
 ): Promise<Set<string>> {
   const taskFilter = taskIds?.length ? { in: taskIds } : undefined;
-  const [homework, practice, variants] = await Promise.all([
+  const [homework, practice, variants, diagnostic] = await Promise.all([
     prisma.attemptAnswer.findMany({
       where: {
         ...(taskFilter ? { taskId: taskFilter } : {}),
@@ -32,9 +32,19 @@ export async function getKnownTaskIds(
       distinct: ["taskId"],
       select: { taskId: true },
     }),
+    prisma.studentDiagnosticItem.findMany({
+      where: {
+        ...(taskFilter ? { taskId: taskFilter } : {}),
+        attempt: { studentId, status: "COMPLETED" },
+      },
+      distinct: ["taskId"],
+      select: { taskId: true },
+    }),
   ]);
 
   return new Set(
-    [...homework, ...practice, ...variants].map((item) => item.taskId)
+    [...homework, ...practice, ...variants, ...diagnostic].map(
+      (item) => item.taskId,
+    )
   );
 }

@@ -35,7 +35,7 @@ type AnswerRecord = {
 
 export type ResultHistoryItem = {
   id: string;
-  source: "HOMEWORK" | "PRACTICE" | "VARIANT";
+  source: "HOMEWORK" | "PRACTICE" | "VARIANT" | "DIAGNOSTIC";
   title: string;
   href: string;
   percent: number;
@@ -67,7 +67,7 @@ export async function getStudentAnalytics(
   const submittedDateFilter = periodStart ? { gte: periodStart } : undefined;
   const createdDateFilter = periodStart ? { gte: periodStart } : undefined;
 
-  const [homeworkAttempts, practiceAttempts, variantAttempts, recentVariants] =
+  const [homeworkAttempts, practiceAttempts, variantAttempts, recentVariants, diagnostics] =
     await Promise.all([
       prisma.attempt.findMany({
         where: {
@@ -151,6 +151,30 @@ export async function getStudentAnalytics(
           variant: { select: { title: true } },
         },
       }),
+      prisma.studentDiagnosticAttempt.findMany({
+        where: {
+          studentId,
+          status: "COMPLETED",
+          ...(submittedDateFilter
+            ? { completedAt: submittedDateFilter }
+            : {}),
+        },
+        orderBy: { completedAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          score: true,
+          maxScore: true,
+          completedAt: true,
+          items: {
+            select: {
+              isCorrect: true,
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true } },
+            },
+          },
+        },
+      }),
     ]);
 
   const answers: AnswerRecord[] = [];
@@ -183,6 +207,18 @@ export async function getStudentAnalytics(
       answers.push({
         egeNumber: answer.taskRevision.egeNumber,
         isCorrect: answer.isCorrect,
+        date,
+      });
+    }
+  }
+
+  for (const diagnostic of diagnostics) {
+    const date = diagnostic.completedAt ?? now;
+    for (const item of diagnostic.items) {
+      if (!item.countsForMastery || item.isCorrect === null) continue;
+      answers.push({
+        egeNumber: item.taskRevision.egeNumber,
+        isCorrect: item.isCorrect,
         date,
       });
     }
@@ -368,6 +404,20 @@ export async function getStudentAnalytics(
       maxScore: attempt.maxScore,
       testScore: primaryToEgeTestScore(attempt.score),
       date: attempt.submittedAt ?? now,
+    })),
+    ...diagnostics.slice(0, 5).map((diagnostic) => ({
+      id: diagnostic.id,
+      source: "DIAGNOSTIC" as const,
+      title: "Входная диагностика",
+      href: "/student/diagnostic",
+      percent:
+        diagnostic.maxScore === 0
+          ? 0
+          : Math.round((diagnostic.score / diagnostic.maxScore) * 100),
+      score: diagnostic.score,
+      maxScore: diagnostic.maxScore,
+      testScore: null,
+      date: diagnostic.completedAt ?? now,
     })),
   ]
     .sort((a, b) => b.date.getTime() - a.date.getTime())

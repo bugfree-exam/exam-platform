@@ -58,6 +58,7 @@ export const studentLearningAnalyticsSchema = z
         HOMEWORK: z.number().int().nonnegative(),
         PRACTICE: z.number().int().nonnegative(),
         VARIANT: z.number().int().nonnegative(),
+        DIAGNOSTIC: z.number().int().nonnegative().default(0),
       })
       .strict(),
     topics: z.array(topicLearningAnalyticsSchema).max(27),

@@ -113,6 +113,57 @@ enum LearningErrorCause {
   OTHER
 }
 
+enum PreparationLevel {
+  ZERO
+  BEGINNER
+  BASIC
+  CONFIDENT
+}
+
+enum DiagnosticStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum StudentRoadmapStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum RoadmapMilestoneStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  DEFERRED
+}
+
+enum QueueDecisionState {
+  ACTIVE
+  SNOOZED
+  HELP_REQUESTED
+  DISMISSED
+}
+
+enum RecoveryReason {
+  OVERLOAD
+  ILLNESS
+  SCHOOL_LOAD
+  LOW_MOTIVATION
+  OTHER
+}
+
+enum RecoveryStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ErrorCorrectionStatus {
+  OPEN
+  CORRECTED
+  VERIFIED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -132,6 +183,12 @@ model User {
   studyPlans         StudentStudyPlan[]
   aiGenerations      AiGeneration[]
   activitySessions   StudentActivitySession[]
+  preparationProfile StudentPreparationProfile?
+  diagnosticAttempts StudentDiagnosticAttempt[]
+  roadmaps           StudentRoadmap[]
+  queueDecisions     StudentQueueDecision[]
+  recoveryPeriods    StudentRecoveryPeriod[]
+  errorCorrections   StudentErrorCorrection[]
 
   lastActivityAt DateTime?
 
@@ -149,6 +206,166 @@ model User {
   telegramLinkTokenExpiresAt   DateTime?
 
   @@index([role, studentStatus])
+}
+
+model StudentPreparationProfile {
+  studentId      String           @id
+  targetScore    Int
+  examDate       DateTime
+  weeklyMinutes  Int
+  sessionMinutes Int
+  preferredDays  Json
+  currentLevel   PreparationLevel
+  completedAt    DateTime         @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([examDate])
+}
+
+model StudentDiagnosticAttempt {
+  id          String           @id @default(cuid())
+  studentId   String
+  status      DiagnosticStatus @default(IN_PROGRESS)
+  score       Int              @default(0)
+  maxScore    Int              @default(0)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  student  User                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  items    StudentDiagnosticItem[]
+  roadmaps StudentRoadmap[]
+
+  @@index([studentId, startedAt])
+  @@index([studentId, status])
+}
+
+model StudentDiagnosticItem {
+  id             String @id @default(cuid())
+  attemptId      String
+  taskId         String
+  taskRevisionId String
+  order          Int
+
+  rawAnswer        Json?
+  normalizedAnswer Json?
+  isCorrect        Boolean?
+  countsForMastery Boolean  @default(true)
+
+  attempt      StudentDiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  task         Task                     @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  taskRevision TaskRevision             @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, taskId])
+  @@unique([attemptId, order])
+  @@index([taskId])
+  @@index([taskRevisionId])
+}
+
+model StudentRoadmap {
+  id                 String               @id @default(cuid())
+  studentId          String
+  sourceDiagnosticId String?
+  status             StudentRoadmapStatus @default(ACTIVE)
+  targetScore        Int
+  examDate           DateTime
+  weeklyMinutes      Int
+  generatedAt        DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  student          User                      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sourceDiagnostic StudentDiagnosticAttempt? @relation(fields: [sourceDiagnosticId], references: [id], onDelete: SetNull)
+  milestones       StudentRoadmapMilestone[]
+
+  @@index([studentId, status])
+  @@index([studentId, generatedAt])
+}
+
+model StudentRoadmapMilestone {
+  id                  String                 @id @default(cuid())
+  roadmapId           String
+  order               Int
+  weekStart           DateTime
+  title               String
+  description         String
+  egeNumbers          Json
+  prerequisiteNumbers Json
+  plannedMinutes      Int
+  status              RoadmapMilestoneStatus @default(PLANNED)
+  reason              String
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  roadmap StudentRoadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  @@unique([roadmapId, order])
+  @@index([roadmapId, weekStart])
+  @@index([status, weekStart])
+}
+
+model StudentQueueDecision {
+  id              String             @id @default(cuid())
+  studentId       String
+  itemKey         String
+  state           QueueDecisionState @default(ACTIVE)
+  scheduledFor    DateTime?
+  note            String?
+  helpRequestedAt DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, itemKey])
+  @@index([studentId, state, scheduledFor])
+}
+
+model StudentRecoveryPeriod {
+  id            String         @id @default(cuid())
+  studentId     String
+  status        RecoveryStatus @default(ACTIVE)
+  reason        RecoveryReason
+  weeklyMinutes Int
+  mainGoal      String
+  startedAt     DateTime       @default(now())
+  endsAt        DateTime
+  reviewAt      DateTime
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, status])
+  @@index([reviewAt])
+}
+
+model StudentErrorCorrection {
+  id              String                @id @default(cuid())
+  studentId       String
+  evidenceKey     String
+  taskId          String
+  taskRevisionId  String
+  errorCause      LearningErrorCause?
+  reflection      String?
+  correctedAnswer Json?
+  status          ErrorCorrectionStatus @default(OPEN)
+  scheduledFor    DateTime?
+  correctedAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  student      User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  taskRevision TaskRevision @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, evidenceKey])
+  @@index([studentId, status, scheduledFor])
+  @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model StudentActivitySession {
@@ -237,8 +454,10 @@ model Task {
   practiceAttempts PracticeAttempt[]
   variantTasks     VariantTask[]
   variantAnswers   VariantAttemptAnswer[]
-  revisions        TaskRevision[]         @relation("TaskRevisions")
-  currentRevision  TaskRevision?          @relation("CurrentTaskRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
+  diagnosticItems  StudentDiagnosticItem[]
+  errorCorrections StudentErrorCorrection[]
+  revisions        TaskRevision[]           @relation("TaskRevisions")
+  currentRevision  TaskRevision?            @relation("CurrentTaskRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
 
   @@index([egeNumber])
   @@index([egeNumber, skillTag])
@@ -273,6 +492,8 @@ model TaskRevision {
   practiceAttempts PracticeAttempt[]
   variantTasks     VariantTask[]
   variantAnswers   VariantAttemptAnswer[]
+  diagnosticItems  StudentDiagnosticItem[]
+  errorCorrections StudentErrorCorrection[]
 
   @@unique([taskId, version])
   @@index([taskId, createdAt])

@@ -6,7 +6,7 @@ import { analyzeStudentLearning } from "./analytics";
 import type { LearningAnswer } from "./types";
 
 export async function getStudentLearningAnalytics(studentId: string) {
-  const [homeworkAttempts, practiceAttempts, variantAttempts] =
+  const [homeworkAttempts, practiceAttempts, variantAttempts, diagnostics] =
     await Promise.all([
       prisma.attempt.findMany({
         where: { studentId, status: "SUBMITTED" },
@@ -45,6 +45,22 @@ export async function getStudentLearningAnalytics(studentId: string) {
           score: true,
           submittedAt: true,
           answers: {
+            select: {
+              taskId: true,
+              isCorrect: true,
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true, skillTag: true } },
+            },
+          },
+        },
+      }),
+      prisma.studentDiagnosticAttempt.findMany({
+        where: { studentId, status: "COMPLETED" },
+        orderBy: { completedAt: "desc" },
+        take: 10,
+        select: {
+          completedAt: true,
+          items: {
             select: {
               taskId: true,
               isCorrect: true,
@@ -97,6 +113,22 @@ export async function getStudentLearningAnalytics(studentId: string) {
         countsForMastery: answer.countsForMastery,
         attemptedAt: attempt.submittedAt,
         source: "VARIANT",
+      });
+    }
+  }
+
+  for (const diagnostic of diagnostics) {
+    if (!diagnostic.completedAt) continue;
+    for (const item of diagnostic.items) {
+      if (item.isCorrect === null) continue;
+      answers.push({
+        taskId: item.taskId,
+        egeNumber: item.taskRevision.egeNumber,
+        skillTag: item.taskRevision.skillTag,
+        isCorrect: item.isCorrect,
+        countsForMastery: item.countsForMastery,
+        attemptedAt: diagnostic.completedAt,
+        source: "DIAGNOSTIC",
       });
     }
   }

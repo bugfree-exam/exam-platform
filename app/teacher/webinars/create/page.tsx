@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export default async function CreateWebinarPage() {
   const homeworkOptions = await prisma.homework.findMany({
-    where: { status: { not: "ARCHIVED" } },
+    where: { status: "ASSIGNED" },
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, status: true },
   });

@@ -41,18 +41,13 @@ const updateWebinarSchema = z.object({
 });
 
 type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const auth = await requireApiRole(UserRole.TEACHER);
-
-    if (!auth.ok) {
-      return auth.response;
-    }
+    if (!auth.ok) return auth.response;
 
     const { id } = await context.params;
     const body = await request.json();
@@ -60,58 +55,40 @@ export async function PUT(request: Request, context: RouteContext) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        {
-          message: "Некорректные данные вебинара",
-          errors: parsed.error.flatten(),
-        },
+        { message: "Некорректные данные вебинара", errors: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
     const contentHtml = sanitizeEditorHtml(parsed.data.contentHtml);
-
     if (!hasEditorContent(contentHtml)) {
-      return NextResponse.json(
-        { message: "Добавьте конспект вебинара" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Добавьте конспект вебинара" }, { status: 400 });
     }
 
     const existingWebinar = await prisma.webinar.findUnique({ where: { id } });
-
     if (!existingWebinar) {
       return NextResponse.json({ message: "Вебинар не найден" }, { status: 404 });
     }
 
     const eventDate = parsed.data.eventDate ? new Date(parsed.data.eventDate) : null;
-
     if (parsed.data.eventDate && Number.isNaN(eventDate?.getTime())) {
       return NextResponse.json({ message: "Некорректная дата вебинара" }, { status: 400 });
     }
 
     const egeNumber = parsed.data.egeNumber ? Number(parsed.data.egeNumber) : null;
-
     if (
       egeNumber !== null &&
       (!Number.isInteger(egeNumber) || egeNumber < 1 || egeNumber > 27)
     ) {
-      return NextResponse.json(
-        { message: "Номер ЕГЭ должен быть от 1 до 27" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Номер ЕГЭ должен быть от 1 до 27" }, { status: 400 });
     }
 
     const practiceHomeworkId = parsed.data.practiceHomeworkId?.trim() || null;
-
     if (practiceHomeworkId) {
       const practiceHomework = await prisma.homework.findFirst({
-        where: {
-          id: practiceHomeworkId,
-          status: { not: "ARCHIVED" },
-        },
+        where: { id: practiceHomeworkId, status: { not: "ARCHIVED" } },
         select: { id: true },
       });
-
       if (!practiceHomework) {
         return NextResponse.json(
           { message: "Выбранное ДЗ для отработки не найдено или находится в архиве" },
@@ -131,18 +108,17 @@ export async function PUT(request: Request, context: RouteContext) {
     );
     const materials = practiceHomeworkId
       ? [
-          ...regularMaterials,
           {
             title: WEBINAR_PRACTICE_MATERIAL_TITLE,
-            url: getWebinarPracticeUrl(practiceHomeworkId),
+            url: getWebinarPracticeUrl(id, practiceHomeworkId),
             type: WebinarMaterialType.LINK,
           },
+          ...regularMaterials,
         ]
       : regularMaterials;
 
     const webinar = await prisma.$transaction(async (tx) => {
       await tx.webinarMaterial.deleteMany({ where: { webinarId: id } });
-
       return tx.webinar.update({
         where: { id },
         data: {
@@ -175,7 +151,6 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ webinar });
   } catch (error) {
     console.error("[WEBINARS_ID_PUT]", error);
-
     return NextResponse.json(
       { message: "Ошибка сервера при обновлении вебинара" },
       { status: 500 }
@@ -186,27 +161,18 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const auth = await requireApiRole(UserRole.TEACHER);
-
-    if (!auth.ok) {
-      return auth.response;
-    }
+    if (!auth.ok) return auth.response;
 
     const { id } = await context.params;
-    const webinar = await prisma.webinar.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
+    const webinar = await prisma.webinar.findUnique({ where: { id }, select: { id: true } });
     if (!webinar) {
       return NextResponse.json({ message: "Вебинар не найден" }, { status: 404 });
     }
 
     await prisma.webinar.delete({ where: { id } });
-
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[WEBINARS_ID_DELETE]", error);
-
     return NextResponse.json(
       { message: "Ошибка сервера при удалении вебинара" },
       { status: 500 }

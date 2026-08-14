@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
-import { UserRole } from "@prisma/client";
+import { UserRole, WebinarMaterialType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
+import {
+  getWebinarPracticeUrl,
+  isWebinarPracticeUrl,
+  WEBINAR_PRACTICE_MATERIAL_TITLE,
+} from "@/lib/webinarPractice";
 import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
 export const runtime = "nodejs";
@@ -44,6 +49,7 @@ const createWebinarSchema = z.object({
   materials: z.array(materialSchema).default([]),
   topic: z.string().optional().nullable(),
   egeNumber: z.string().optional().nullable(),
+  practiceHomeworkId: z.string().optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -101,11 +107,44 @@ export async function POST(request: Request) {
       );
     }
 
+    const practiceHomeworkId = parsed.data.practiceHomeworkId?.trim() || null;
+
+    if (practiceHomeworkId) {
+      const practiceHomework = await prisma.homework.findFirst({
+        where: {
+          id: practiceHomeworkId,
+          status: { not: "ARCHIVED" },
+        },
+        select: { id: true },
+      });
+
+      if (!practiceHomework) {
+        return NextResponse.json(
+          { message: "Выбранное ДЗ для отработки не найдено или находится в архиве" },
+          { status: 400 }
+        );
+      }
+    }
+
     const videoEmbedUrl = getWebinarEmbedUrl({
       provider: parsed.data.videoProvider,
       videoUrl: parsed.data.videoUrl,
       videoEmbedUrl: parsed.data.videoEmbedUrl ?? null,
     });
+
+    const regularMaterials = parsed.data.materials.filter(
+      (material) => !isWebinarPracticeUrl(material.url)
+    );
+    const materials = practiceHomeworkId
+      ? [
+          ...regularMaterials,
+          {
+            title: WEBINAR_PRACTICE_MATERIAL_TITLE,
+            url: getWebinarPracticeUrl(practiceHomeworkId),
+            type: WebinarMaterialType.LINK,
+          },
+        ]
+      : regularMaterials;
 
     const webinar = await prisma.webinar.create({
       data: {
@@ -122,7 +161,7 @@ export async function POST(request: Request) {
         publishedAt:
           parsed.data.status === "PUBLISHED" ? new Date() : null,
         materials: {
-          create: parsed.data.materials.map((material, index) => ({
+          create: materials.map((material, index) => ({
             title: material.title.trim(),
             url: material.url.trim(),
             type: material.type,

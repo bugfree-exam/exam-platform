@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type AnswerType =
   | "TEXT"
@@ -451,42 +451,43 @@ export function HomeworkSolveForm({
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [draftLoaded, setDraftLoaded] = useState(false);
+  const draftLoadedRef = useRef(false);
 
   const visibleResult = submitResult ?? previousAttempt;
   const draftKey = `exam-platform:homework-draft:${homeworkId}`;
 
   useEffect(() => {
-    if (readOnly) {
-      setDraftLoaded(true);
-      return;
-    }
+    if (readOnly) return;
 
-    try {
-      const rawDraft = window.localStorage.getItem(draftKey);
+    const timeout = window.setTimeout(() => {
+      try {
+        const rawDraft = window.localStorage.getItem(draftKey);
 
-      if (rawDraft) {
-        const parsedDraft = JSON.parse(rawDraft) as Record<string, unknown>;
-        const restoredAnswers: Record<string, string> = {};
-        const validTaskIds = new Set(tasks.map((task) => task.id));
+        if (rawDraft) {
+          const parsedDraft = JSON.parse(rawDraft) as Record<string, unknown>;
+          const restoredAnswers: Record<string, string> = {};
+          const validTaskIds = new Set(tasks.map((task) => task.id));
 
-        for (const [taskId, value] of Object.entries(parsedDraft)) {
-          if (validTaskIds.has(taskId) && typeof value === "string") {
-            restoredAnswers[taskId] = value;
+          for (const [taskId, value] of Object.entries(parsedDraft)) {
+            if (validTaskIds.has(taskId) && typeof value === "string") {
+              restoredAnswers[taskId] = value;
+            }
           }
-        }
 
-        setAnswers((current) => ({ ...current, ...restoredAnswers }));
+          setAnswers((current) => ({ ...current, ...restoredAnswers }));
+        }
+      } catch {
+        // Поврежденный локальный черновик не должен мешать решению ДЗ.
+      } finally {
+        draftLoadedRef.current = true;
       }
-    } catch {
-      // Поврежденный локальный черновик не должен мешать решению ДЗ.
-    } finally {
-      setDraftLoaded(true);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
   }, [draftKey, readOnly, tasks]);
 
   useEffect(() => {
-    if (!draftLoaded || readOnly) return;
+    if (!draftLoadedRef.current || readOnly) return;
 
     const timeout = window.setTimeout(() => {
       try {
@@ -497,7 +498,7 @@ export function HomeworkSolveForm({
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [answers, draftKey, draftLoaded, readOnly]);
+  }, [answers, draftKey, readOnly]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

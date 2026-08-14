@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { DeleteWebinarButton } from "@/components/webinars/DeleteWebinarButton";
 import { prisma } from "@/lib/prisma";
 import {
   getVideoProviderLabel,
@@ -37,6 +38,12 @@ export default async function TeacherWebinarPage({
           order: "asc",
         },
       },
+      practiceHomework: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
     },
   });
 
@@ -71,6 +78,12 @@ export default async function TeacherWebinarPage({
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                   {webinar.status}
                 </span>
+
+                {webinar.practiceHomework ? (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    Отработка: {webinar.practiceHomework.title}
+                  </span>
+                ) : null}
               </div>
 
               <h1 className="mt-3 text-3xl font-bold text-slate-950">
@@ -82,7 +95,7 @@ export default async function TeacherWebinarPage({
               ) : null}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               <Link
                 href={`/teacher/webinars/${webinar.id}/edit`}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
@@ -98,6 +111,11 @@ export default async function TeacherWebinarPage({
                   Как видит ученик
                 </Link>
               ) : null}
+
+              <DeleteWebinarButton
+                webinarId={webinar.id}
+                webinarTitle={webinar.title}
+              />
             </div>
           </div>
         </header>

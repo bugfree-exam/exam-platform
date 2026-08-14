@@ -9,37 +9,28 @@ import {
 } from "@/lib/webinarPractice";
 
 type EditWebinarPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 function formatDateTimeLocal(date: Date | null) {
   if (!date) return "";
-
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
-
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 export default async function EditWebinarPage({ params }: EditWebinarPageProps) {
   const { id } = await params;
-
-  const [webinar, homeworkOptions] = await Promise.all([
+  const [webinar, activeHomeworks] = await Promise.all([
     prisma.webinar.findUnique({
       where: { id },
-      include: {
-        materials: {
-          orderBy: { order: "asc" },
-        },
-      },
+      include: { materials: { orderBy: { order: "asc" } } },
     }),
     prisma.homework.findMany({
-      where: { status: { not: "ARCHIVED" } },
+      where: { status: "ASSIGNED" },
       orderBy: { createdAt: "desc" },
       select: { id: true, title: true, status: true },
     }),
@@ -57,21 +48,24 @@ export default async function EditWebinarPage({ params }: EditWebinarPageProps) 
     (material) => !isWebinarPracticeUrl(material.url)
   );
 
+  const currentPracticeHomework = practiceHomeworkId
+    ? await prisma.homework.findUnique({
+        where: { id: practiceHomeworkId },
+        select: { id: true, title: true, status: true },
+      })
+    : null;
+  const homeworkOptions = currentPracticeHomework && !activeHomeworks.some((item) => item.id === currentPracticeHomework.id)
+    ? [currentPracticeHomework, ...activeHomeworks]
+    : activeHomeworks;
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-5xl">
         <header className="mb-8">
-          <Link
-            href={`/teacher/webinars/${webinar.id}`}
-            className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
-          >
+          <Link href={`/teacher/webinars/${webinar.id}`} className="text-sm font-medium text-cyan-700 hover:text-cyan-900">
             ← К вебинару
           </Link>
-
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">
-            Редактирование вебинара
-          </h1>
-
+          <h1 className="mt-3 text-3xl font-bold text-slate-950">Редактирование вебинара</h1>
           <p className="mt-2 text-slate-600">
             Измени видео, конспект, материалы, задания для отработки и статус публикации.
           </p>

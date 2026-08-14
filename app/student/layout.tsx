@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { MobileBottomNav } from "@/components/navigation/MobileBottomNav";
+import { StudentActivityHeartbeat } from "@/components/student/StudentActivityHeartbeat";
 import { requireStudentPage } from "@/lib/access";
 import { getTelegramConfig } from "@/lib/telegram";
 
@@ -17,6 +18,7 @@ export default async function StudentLayout({
 
   return (
     <div className="mobile-app-shell">
+      <StudentActivityHeartbeat />
       {children}
       {telegramEnabled ? (
         <Link

@@ -6,6 +6,8 @@ import { TaskAnswerReviewButton } from "@/components/teacher/TaskAnswerReviewBut
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 type TeacherHomeworkPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -87,6 +89,8 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
     latestAttemptByStudent.has(assignment.studentId)
   ).length;
   const assignedCount = homework.assignments.length;
+  // Серверная динамическая страница намеренно проверяет текущее время запроса.
+  // eslint-disable-next-line react-hooks/purity
   const deadlinePassed = Boolean(homework.deadline && homework.deadline.getTime() < Date.now());
 
   return (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArchiveHomeworkButton } from "@/components/homeworks/ArchiveHomeworkButton";
+import { TaskAnswerReviewButton } from "@/components/teacher/TaskAnswerReviewButton";
 
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { prisma } from "@/lib/prisma";
@@ -31,6 +32,7 @@ export default async function TeacherHomeworkPage({
               id: true,
               egeNumber: true,
               title: true,
+              statementHtml: true,
               answerType: true,
               correctAnswer: true,
               isArchived: true,
@@ -71,6 +73,7 @@ export default async function TeacherHomeworkPage({
                   id: true,
                   egeNumber: true,
                   title: true,
+                  statementHtml: true,
                   correctAnswer: true,
                 },
               },
@@ -215,6 +218,9 @@ export default async function TeacherHomeworkPage({
           <h2 className="text-xl font-bold text-slate-950">
             Выполнение учениками
           </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Нажмите на номер задания, чтобы открыть полное условие и сравнить ответы.
+          </p>
 
           <div className="mt-4 grid gap-4">
             {homework.assignments.map((assignment) => {
@@ -258,12 +264,17 @@ export default async function TeacherHomeworkPage({
                           key={answer.id}
                           className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm"
                         >
-                          <div>
-                            <div className="font-semibold text-slate-800">
-                              №{answer.task.egeNumber}. {answer.task.title}
-                            </div>
+                          <div className="min-w-0 flex-1">
+                            <TaskAnswerReviewButton
+                              egeNumber={answer.task.egeNumber}
+                              title={answer.task.title}
+                              statementHtml={answer.task.statementHtml}
+                              studentAnswer={formatAnswerForDisplay(answer.rawAnswer)}
+                              correctAnswer={formatAnswerForDisplay(answer.task.correctAnswer)}
+                              isCorrect={answer.isCorrect}
+                            />
 
-                            <div className="mt-1 text-slate-500">
+                            <div className="mt-2 text-slate-500">
                               Ответ ученика:{" "}
                               <span className="font-mono text-slate-800">
                                 {formatAnswerForDisplay(answer.rawAnswer)}

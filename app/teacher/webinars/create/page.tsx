@@ -1,8 +1,15 @@
 import Link from "next/link";
 
 import { WebinarForm } from "@/components/webinars/WebinarForm";
+import { prisma } from "@/lib/prisma";
 
-export default function CreateWebinarPage() {
+export default async function CreateWebinarPage() {
+  const homeworkOptions = await prisma.homework.findMany({
+    where: { status: { not: "ARCHIVED" } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, status: true },
+  });
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-8">
       <div className="mx-auto max-w-5xl">
@@ -14,16 +21,14 @@ export default function CreateWebinarPage() {
             ← Вебинары
           </Link>
 
-          <h1 className="mt-3 text-3xl font-bold text-slate-950">
-            Новый вебинар
-          </h1>
+          <h1 className="mt-3 text-3xl font-bold text-slate-950">Новый вебинар</h1>
 
           <p className="mt-2 text-slate-600">
-            Добавь видео, конспект и материалы, которые увидит ученик.
+            Добавь видео, конспект, материалы и задания для отработки.
           </p>
         </header>
 
-        <WebinarForm />
+        <WebinarForm homeworkOptions={homeworkOptions} />
       </div>
     </main>
   );

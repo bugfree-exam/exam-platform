@@ -32,6 +32,7 @@ const updateWebinarSchema = z.object({
   materials: z.array(materialSchema).default([]),
   topic: z.string().optional().nullable(),
   egeNumber: z.string().optional().nullable(),
+  practiceHomeworkId: z.string().optional().nullable(),
 });
 
 type RouteContext = {
@@ -110,6 +111,29 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
+    const practiceHomeworkId = parsed.data.practiceHomeworkId?.trim() || null;
+
+    if (practiceHomeworkId) {
+      const practiceHomework = await prisma.homework.findFirst({
+        where: {
+          id: practiceHomeworkId,
+          status: {
+            not: "ARCHIVED",
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!practiceHomework) {
+        return NextResponse.json(
+          { message: "Выбранное ДЗ для отработки не найдено или находится в архиве" },
+          { status: 400 }
+        );
+      }
+    }
+
     const videoEmbedUrl = getWebinarEmbedUrl({
       provider: parsed.data.videoProvider,
       videoUrl: parsed.data.videoUrl,
@@ -137,6 +161,7 @@ export async function PUT(request: Request, context: RouteContext) {
           status: parsed.data.status,
           topic: parsed.data.topic?.trim() || null,
           egeNumber,
+          practiceHomeworkId,
           eventDate,
           publishedAt:
             parsed.data.status === WebinarStatus.PUBLISHED
@@ -162,6 +187,37 @@ export async function PUT(request: Request, context: RouteContext) {
 
     return NextResponse.json(
       { message: "Ошибка сервера при обновлении вебинара" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    const auth = await requireApiRole(UserRole.TEACHER);
+
+    if (!auth.ok) {
+      return auth.response;
+    }
+
+    const { id } = await context.params;
+    const webinar = await prisma.webinar.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!webinar) {
+      return NextResponse.json({ message: "Вебинар не найден" }, { status: 404 });
+    }
+
+    await prisma.webinar.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[WEBINARS_ID_DELETE]", error);
+
+    return NextResponse.json(
+      { message: "Ошибка сервера при удалении вебинара" },
       { status: 500 }
     );
   }

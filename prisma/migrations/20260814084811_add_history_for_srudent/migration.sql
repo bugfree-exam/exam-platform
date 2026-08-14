@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "ReminderDelivery_studentId_channel_kind_resourceType_resourceId" RENAME TO "ReminderDelivery_studentId_channel_kind_resourceType_resour_key";

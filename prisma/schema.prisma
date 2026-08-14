@@ -126,6 +126,7 @@ model User {
   reminderDeliveries ReminderDelivery[]
   studyPlans         StudentStudyPlan[]
   aiGenerations      AiGeneration[]
+  activitySessions   StudentActivitySession[]
 
   lastActivityAt DateTime?
 
@@ -143,6 +144,22 @@ model User {
   telegramLinkTokenExpiresAt   DateTime?
 
   @@index([role, studentStatus])
+}
+
+model StudentActivitySession {
+  id               String   @id @default(cuid())
+  studentId        String
+  browserSessionId String   @unique
+  startedAt        DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  lastPath         String?
+  pageViews        Int      @default(1)
+  createdAt        DateTime @default(now())
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, startedAt])
+  @@index([studentId, lastSeenAt])
 }
 
 model StudentStudyPlan {

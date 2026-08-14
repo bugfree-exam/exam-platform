@@ -10,6 +10,11 @@ import { requireApiRole } from "@/lib/access";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getWebinarEmbedUrl } from "@/lib/webinarVideo";
+import {
+  getWebinarPracticeUrl,
+  isWebinarPracticeUrl,
+  WEBINAR_PRACTICE_MATERIAL_TITLE,
+} from "@/lib/webinarPractice";
 import { hasEditorContent, sanitizeEditorHtml } from "@/lib/sanitizeHtml";
 
 export const runtime = "nodejs";
@@ -50,7 +55,6 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
-
     const body = await request.json();
     const parsed = updateWebinarSchema.safeParse(body);
 
@@ -73,33 +77,19 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const existingWebinar = await prisma.webinar.findUnique({
-      where: {
-        id,
-      },
-    });
+    const existingWebinar = await prisma.webinar.findUnique({ where: { id } });
 
     if (!existingWebinar) {
-      return NextResponse.json(
-        { message: "Вебинар не найден" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "Вебинар не найден" }, { status: 404 });
     }
 
-    const eventDate = parsed.data.eventDate
-      ? new Date(parsed.data.eventDate)
-      : null;
+    const eventDate = parsed.data.eventDate ? new Date(parsed.data.eventDate) : null;
 
     if (parsed.data.eventDate && Number.isNaN(eventDate?.getTime())) {
-      return NextResponse.json(
-        { message: "Некорректная дата вебинара" },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Некорректная дата вебинара" }, { status: 400 });
     }
 
-    const egeNumber = parsed.data.egeNumber
-      ? Number(parsed.data.egeNumber)
-      : null;
+    const egeNumber = parsed.data.egeNumber ? Number(parsed.data.egeNumber) : null;
 
     if (
       egeNumber !== null &&
@@ -117,13 +107,9 @@ export async function PUT(request: Request, context: RouteContext) {
       const practiceHomework = await prisma.homework.findFirst({
         where: {
           id: practiceHomeworkId,
-          status: {
-            not: "ARCHIVED",
-          },
+          status: { not: "ARCHIVED" },
         },
-        select: {
-          id: true,
-        },
+        select: { id: true },
       });
 
       if (!practiceHomework) {
@@ -140,17 +126,25 @@ export async function PUT(request: Request, context: RouteContext) {
       videoEmbedUrl: parsed.data.videoEmbedUrl ?? null,
     });
 
-    const webinar = await prisma.$transaction(async (tx) => {
-      await tx.webinarMaterial.deleteMany({
-        where: {
-          webinarId: id,
-        },
-      });
+    const regularMaterials = parsed.data.materials.filter(
+      (material) => !isWebinarPracticeUrl(material.url)
+    );
+    const materials = practiceHomeworkId
+      ? [
+          ...regularMaterials,
+          {
+            title: WEBINAR_PRACTICE_MATERIAL_TITLE,
+            url: getWebinarPracticeUrl(practiceHomeworkId),
+            type: WebinarMaterialType.LINK,
+          },
+        ]
+      : regularMaterials;
 
-      const updatedWebinar = await tx.webinar.update({
-        where: {
-          id,
-        },
+    const webinar = await prisma.$transaction(async (tx) => {
+      await tx.webinarMaterial.deleteMany({ where: { webinarId: id } });
+
+      return tx.webinar.update({
+        where: { id },
         data: {
           title: parsed.data.title.trim(),
           description: parsed.data.description?.trim() || null,
@@ -161,14 +155,13 @@ export async function PUT(request: Request, context: RouteContext) {
           status: parsed.data.status,
           topic: parsed.data.topic?.trim() || null,
           egeNumber,
-          practiceHomeworkId,
           eventDate,
           publishedAt:
             parsed.data.status === WebinarStatus.PUBLISHED
               ? existingWebinar.publishedAt ?? new Date()
               : existingWebinar.publishedAt,
           materials: {
-            create: parsed.data.materials.map((material, index) => ({
+            create: materials.map((material, index) => ({
               title: material.title.trim(),
               url: material.url.trim(),
               type: material.type,
@@ -177,8 +170,6 @@ export async function PUT(request: Request, context: RouteContext) {
           },
         },
       });
-
-      return updatedWebinar;
     });
 
     return NextResponse.json({ webinar });

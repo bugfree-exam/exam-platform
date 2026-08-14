@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type StudentAccessCardProps = {
@@ -158,6 +159,14 @@ export function StudentAccessCard({
             {lastActivityLabel}
           </div>
         </div>
+
+        <Link
+          href={`/teacher/students/${studentId}/activity`}
+          className="flex w-full items-center justify-between rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-800 transition hover:bg-cyan-100"
+        >
+          <span>Подробная активность ученика</span>
+          <span aria-hidden="true">→</span>
+        </Link>
 
         {message ? (
           <div

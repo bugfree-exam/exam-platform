@@ -69,6 +69,7 @@ export async function POST(request: Request, context: RouteContext) {
     select: {
       answerType: true,
       correctAnswer: true,
+      hintHtml: true,
       explanationHtml: true,
     },
   });
@@ -90,8 +91,14 @@ export async function POST(request: Request, context: RouteContext) {
     {
       isCorrect: result.isCorrect,
       normalizedAnswer: result.normalizedStudentAnswer,
-      correctAnswer: task.correctAnswer,
-      explanationHtml: task.explanationHtml,
+      feedbackStage: result.isCorrect ? "SOLUTION" : "HINT",
+      correctAnswer: result.isCorrect ? task.correctAnswer : null,
+      hintHtml:
+        result.isCorrect
+          ? null
+          : task.hintHtml ??
+            "<p>Проверьте, какие данные даны в условии, и повторите вычисления с первого шага.</p>",
+      explanationHtml: result.isCorrect ? task.explanationHtml : null,
     },
     {
       headers: {

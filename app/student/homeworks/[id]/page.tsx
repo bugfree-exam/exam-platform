@@ -82,24 +82,26 @@ export default async function StudentHomeworkPage({
           order: "asc",
         },
         include: {
-          task: {
+          taskRevision: {
             select: {
               id: true,
               egeNumber: true,
               title: true,
               statementHtml: true,
+              referenceHtml: true,
               answerType: true,
               difficulty: true,
-              isArchived: true,
               attachments: {
+                orderBy: { order: "asc" },
                 select: {
-                  id: true,
-                  originalName: true,
-                  extension: true,
-                  sizeBytes: true,
-                },
-                orderBy: {
-                  createdAt: "asc",
+                  attachment: {
+                    select: {
+                      id: true,
+                      originalName: true,
+                      extension: true,
+                      sizeBytes: true,
+                    },
+                  },
                 },
               },
             },
@@ -118,7 +120,7 @@ export default async function StudentHomeworkPage({
         include: {
           answers: {
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
@@ -130,7 +132,7 @@ export default async function StudentHomeworkPage({
               },
             },
             orderBy: {
-              task: {
+              taskRevision: {
                 egeNumber: "asc",
               },
             },
@@ -149,13 +151,14 @@ export default async function StudentHomeworkPage({
    * выданную работу или её максимальный балл.
    */
   const tasks = homework.tasks.map((homeworkTask) => ({
-      id: homeworkTask.task.id,
-      egeNumber: homeworkTask.task.egeNumber,
-      title: homeworkTask.task.title,
-      statementHtml: homeworkTask.task.statementHtml,
-      answerType: homeworkTask.task.answerType,
-      difficulty: homeworkTask.task.difficulty,
-      attachments: homeworkTask.task.attachments,
+      id: homeworkTask.taskId,
+      egeNumber: homeworkTask.taskRevision.egeNumber,
+      title: homeworkTask.taskRevision.title,
+      statementHtml: homeworkTask.taskRevision.statementHtml,
+      referenceHtml: homeworkTask.taskRevision.referenceHtml,
+      answerType: homeworkTask.taskRevision.answerType,
+      difficulty: homeworkTask.taskRevision.difficulty,
+      attachments: homeworkTask.taskRevision.attachments.map((link) => link.attachment),
     }));
 
   const previousAttempt = homework.attempts[0] ?? null;
@@ -532,12 +535,12 @@ export default async function StudentHomeworkPage({
                         answers: previousAttempt.answers.map((answer) => ({
                           taskId: answer.taskId,
                           task: {
-                            id: answer.task.id,
-                            egeNumber: answer.task.egeNumber,
-                            title: answer.task.title,
-                            answerType: answer.task.answerType,
-                            correctAnswer: answer.task.correctAnswer,
-                            explanationHtml: answer.task.explanationHtml,
+                            id: answer.taskId,
+                            egeNumber: answer.taskRevision.egeNumber,
+                            title: answer.taskRevision.title,
+                            answerType: answer.taskRevision.answerType,
+                            correctAnswer: answer.taskRevision.correctAnswer,
+                            explanationHtml: answer.taskRevision.explanationHtml,
                           },
                           rawAnswer: answer.rawAnswer,
                           normalizedAnswer: answer.normalizedAnswer,

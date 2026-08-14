@@ -1,6 +1,13 @@
 import "server-only";
 
 import { primaryToEgeTestScore } from "@/lib/egeScore";
+import {
+  getMasteryConfidence,
+  getMasteryState,
+  MASTERY_POLICY,
+  type MasteryConfidence,
+  type MasteryState,
+} from "@/lib/mastery";
 import { prisma } from "@/lib/prisma";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,8 +20,8 @@ export type TaskSkill = {
   correct: number;
   incorrect: number;
   percent: number;
-  confidence: "LOW" | "MEDIUM" | "HIGH";
-  status: "INSUFFICIENT" | "FOCUS" | "GROWING" | "STRONG";
+  confidence: MasteryConfidence;
+  status: MasteryState;
   recentPercent: number | null;
   previousPercent: number | null;
   trend: number | null;
@@ -42,19 +49,6 @@ function getPeriodStart(period: AnalyticsPeriod) {
   if (period === "all") return null;
   const days = Number(period);
   return new Date(Date.now() - days * DAY_MS);
-}
-
-function skillStatus(total: number, percent: number): TaskSkill["status"] {
-  if (total < 3) return "INSUFFICIENT";
-  if (percent < 50) return "FOCUS";
-  if (percent < 80) return "GROWING";
-  return "STRONG";
-}
-
-function confidence(total: number): TaskSkill["confidence"] {
-  if (total < 3) return "LOW";
-  if (total < 7) return "MEDIUM";
-  return "HIGH";
 }
 
 function percent(correct: number, total: number) {
@@ -97,7 +91,8 @@ export async function getStudentAnalytics(
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true } },
             },
           },
         },
@@ -112,8 +107,9 @@ export async function getStudentAnalytics(
           id: true,
           taskId: true,
           isCorrect: true,
+          countsForMastery: true,
           createdAt: true,
-          task: { select: { egeNumber: true } },
+          taskRevision: { select: { egeNumber: true } },
         },
       }),
       prisma.variantAttempt.findMany({
@@ -136,7 +132,8 @@ export async function getStudentAnalytics(
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true } },
             },
           },
         },
@@ -161,8 +158,9 @@ export async function getStudentAnalytics(
   for (const attempt of homeworkAttempts) {
     const date = attempt.submittedAt ?? now;
     for (const answer of attempt.answers) {
+      if (!answer.countsForMastery) continue;
       answers.push({
-        egeNumber: answer.task.egeNumber,
+        egeNumber: answer.taskRevision.egeNumber,
         isCorrect: answer.isCorrect,
         date,
       });
@@ -170,8 +168,9 @@ export async function getStudentAnalytics(
   }
 
   for (const attempt of practiceAttempts) {
+    if (!attempt.countsForMastery) continue;
     answers.push({
-      egeNumber: attempt.task.egeNumber,
+      egeNumber: attempt.taskRevision.egeNumber,
       isCorrect: attempt.isCorrect,
       date: attempt.createdAt,
     });
@@ -180,8 +179,9 @@ export async function getStudentAnalytics(
   for (const attempt of variantAttempts) {
     const date = attempt.submittedAt ?? now;
     for (const answer of attempt.answers) {
+      if (!answer.countsForMastery) continue;
       answers.push({
-        egeNumber: answer.task.egeNumber,
+        egeNumber: answer.taskRevision.egeNumber,
         isCorrect: answer.isCorrect,
         date,
       });
@@ -227,6 +227,41 @@ export async function getStudentAnalytics(
   const skills: TaskSkill[] = Array.from(taskMap.entries())
     .map(([egeNumber, stat]) => {
       const overall = percent(stat.correct, stat.total);
+      const orderedEvidence = answers
+        .filter((answer) => answer.egeNumber === egeNumber)
+        .sort((first, second) => second.date.getTime() - first.date.getTime());
+      const recentEvidence = orderedEvidence.slice(
+        0,
+        MASTERY_POLICY.recentEvidenceWindow
+      );
+      const previousEvidence = orderedEvidence.slice(
+        MASTERY_POLICY.recentEvidenceWindow,
+        MASTERY_POLICY.recentEvidenceWindow * 2
+      );
+      const recentEvidencePercent = recentEvidence.length
+        ? percent(
+            recentEvidence.filter((answer) => answer.isCorrect).length,
+            recentEvidence.length
+          )
+        : null;
+      const previousEvidencePercent = previousEvidence.length
+        ? percent(
+            previousEvidence.filter((answer) => answer.isCorrect).length,
+            previousEvidence.length
+          )
+        : null;
+      const evidenceTrend =
+        recentEvidence.length >= 3 &&
+        previousEvidence.length >= 3 &&
+        recentEvidencePercent !== null &&
+        previousEvidencePercent !== null
+          ? recentEvidencePercent - previousEvidencePercent
+          : null;
+      let currentErrorStreak = 0;
+      for (const answer of orderedEvidence) {
+        if (answer.isCorrect) break;
+        currentErrorStreak += 1;
+      }
       const recentPercent =
         stat.recentTotal >= 2
           ? percent(stat.recentCorrect, stat.recentTotal)
@@ -242,8 +277,12 @@ export async function getStudentAnalytics(
         correct: stat.correct,
         incorrect: stat.total - stat.correct,
         percent: overall,
-        confidence: confidence(stat.total),
-        status: skillStatus(stat.total, overall),
+        confidence: getMasteryConfidence(stat.total),
+        status: getMasteryState(stat.total, overall, {
+          recentAccuracy: recentEvidencePercent,
+          trend: evidenceTrend,
+          currentErrorStreak,
+        }),
         recentPercent,
         previousPercent,
         trend:
@@ -285,12 +324,14 @@ export async function getStudentAnalytics(
       : null;
 
   const focusSkills = [...skills]
-    .filter((skill) => skill.total >= 3 && skill.percent < 70)
+    .filter((skill) =>
+      skill.status === "CRITICAL_GAP" || skill.status === "PRACTICE"
+    )
     .sort((a, b) => a.percent - b.percent || b.total - a.total)
     .slice(0, 3);
 
   const strongSkills = [...skills]
-    .filter((skill) => skill.total >= 5 && skill.percent >= 80)
+    .filter((skill) => skill.status === "MASTERED")
     .sort((a, b) => b.percent - a.percent || b.total - a.total)
     .slice(0, 3);
 
@@ -309,8 +350,8 @@ export async function getStudentAnalytics(
     ...practiceAttempts.slice(0, 30).map((attempt) => ({
       id: attempt.id,
       source: "PRACTICE" as const,
-      title: `Тренажёр · №${attempt.task.egeNumber}`,
-      href: `/student/trainer/${attempt.task.egeNumber}?task=${attempt.taskId}`,
+      title: `Тренажёр · №${attempt.taskRevision.egeNumber}`,
+      href: `/student/trainer/${attempt.taskRevision.egeNumber}?task=${attempt.taskId}`,
       percent: attempt.isCorrect ? 100 : 0,
       score: attempt.isCorrect ? 1 : 0,
       maxScore: 1,

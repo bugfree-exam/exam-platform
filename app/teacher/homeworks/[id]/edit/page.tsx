@@ -43,10 +43,14 @@ export default async function EditHomeworkPage({
             task: {
               select: {
                 id: true,
+                isArchived: true,
+              },
+            },
+            taskRevision: {
+              select: {
                 egeNumber: true,
                 title: true,
                 difficulty: true,
-                isArchived: true,
               },
             },
           },
@@ -110,10 +114,10 @@ export default async function EditHomeworkPage({
 
   const extraTasksFromHomework = homework.tasks
     .map((homeworkTask) => ({
-      id: homeworkTask.task.id,
-      egeNumber: homeworkTask.task.egeNumber,
-      title: homeworkTask.task.title,
-      difficulty: homeworkTask.task.difficulty,
+      id: homeworkTask.taskId,
+      egeNumber: homeworkTask.taskRevision.egeNumber,
+      title: homeworkTask.taskRevision.title,
+      difficulty: homeworkTask.taskRevision.difficulty,
       isArchived: homeworkTask.task.isArchived,
     }))
     .filter((taskFromHomework) =>

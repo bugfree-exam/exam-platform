@@ -110,6 +110,7 @@ export async function POST(request: Request) {
       },
       select: {
         id: true,
+        currentRevisionId: true,
       },
     });
 
@@ -117,6 +118,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { message: "Некоторые задачи не найдены или находятся в архиве" },
         { status: 400 }
+      );
+    }
+    const taskById = new Map(tasks.map((task) => [task.id, task]));
+    if (tasks.some((task) => !task.currentRevisionId)) {
+      return NextResponse.json(
+        { message: "У некоторых задач отсутствует опубликованная версия" },
+        { status: 409 }
       );
     }
 
@@ -167,6 +175,7 @@ export async function POST(request: Request) {
         tasks: {
           create: uniqueTaskIds.map((taskId, index) => ({
             taskId,
+            taskRevisionId: taskById.get(taskId)!.currentRevisionId!,
             order: index + 1,
           })),
         },

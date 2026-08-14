@@ -33,12 +33,16 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
           task: {
             select: {
               id: true,
+              isArchived: true,
+            },
+          },
+          taskRevision: {
+            select: {
               egeNumber: true,
               title: true,
               statementHtml: true,
               answerType: true,
               correctAnswer: true,
-              isArchived: true,
             },
           },
         },
@@ -59,7 +63,7 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
           },
           answers: {
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
@@ -173,9 +177,9 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
                         {index + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold text-cyan-700">ЕГЭ №{homeworkTask.task.egeNumber}</div>
+                        <div className="text-xs font-bold text-cyan-700">ЕГЭ №{homeworkTask.taskRevision.egeNumber}</div>
                         <div className="mt-1 line-clamp-2 text-sm font-bold text-slate-900">
-                          {homeworkTask.task.title}
+                          {homeworkTask.taskRevision.title}
                         </div>
                       </div>
                       <span className="text-slate-400 transition group-open:rotate-180">⌄</span>
@@ -183,7 +187,7 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
                   </summary>
                   <div className="border-t border-slate-200 px-3 py-3 text-xs leading-5 text-slate-500">
                     <div>
-                      Правильный ответ: <span className="font-mono font-bold text-slate-800">{formatAnswerForDisplay(homeworkTask.task.correctAnswer)}</span>
+                      Правильный ответ: <span className="font-mono font-bold text-slate-800">{formatAnswerForDisplay(homeworkTask.taskRevision.correctAnswer)}</span>
                     </div>
                     {homeworkTask.task.isArchived ? (
                       <div className="mt-2 font-bold text-rose-700">Задача удалена из активной базы</div>
@@ -269,11 +273,11 @@ export default async function TeacherHomeworkPage({ params }: TeacherHomeworkPag
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <TaskAnswerReviewButton
-                                      egeNumber={answer.task.egeNumber}
-                                      title={answer.task.title}
-                                      statementHtml={answer.task.statementHtml}
+                                      egeNumber={answer.taskRevision.egeNumber}
+                                      title={answer.taskRevision.title}
+                                      statementHtml={answer.taskRevision.statementHtml}
                                       studentAnswer={formatAnswerForDisplay(answer.rawAnswer)}
-                                      correctAnswer={formatAnswerForDisplay(answer.task.correctAnswer)}
+                                      correctAnswer={formatAnswerForDisplay(answer.taskRevision.correctAnswer)}
                                       isCorrect={answer.isCorrect}
                                     />
                                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${answer.isCorrect ? "bg-emerald-200 text-emerald-800" : "bg-rose-200 text-rose-800"}`}>

@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         egeNumber: true,
+        currentRevisionId: true,
       },
     });
 
@@ -57,6 +58,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { message: "Некоторые задания не найдены или находятся в архиве" },
         { status: 400 }
+      );
+    }
+
+    if (tasks.some((task) => !task.currentRevisionId)) {
+      return NextResponse.json(
+        { message: "У некоторых заданий отсутствует опубликованная версия" },
+        { status: 409 }
       );
     }
 
@@ -86,6 +94,7 @@ export async function POST(request: Request) {
         tasks: {
           create: parsed.data.taskIds.map((taskId, index) => ({
             taskId,
+            taskRevisionId: taskById.get(taskId)!.currentRevisionId!,
             order: index + 1,
             points: index >= 25 ? 2 : 1,
           })),

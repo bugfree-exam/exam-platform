@@ -20,15 +20,21 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
       isArchived: false,
     },
     include: {
-      attachments: {
-        select: {
-          id: true,
-          originalName: true,
-          extension: true,
-          sizeBytes: true,
-        },
-        orderBy: {
-          createdAt: "asc",
+      currentRevision: {
+        include: {
+          attachments: {
+            orderBy: { order: "asc" },
+            select: {
+              attachment: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  extension: true,
+                  sizeBytes: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -52,7 +58,7 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
             Редактирование задачи
           </h1>
           <p className="mt-2 text-slate-600">
-            Измени условие, тип ответа или правильный ответ.
+            Изменения создадут новую версию. Уже выданные работы сохранят прежний снимок.
           </p>
         </header>
 
@@ -64,15 +70,19 @@ export default async function EditTaskPage({ params }: EditTaskPageProps) {
               egeNumber: task.egeNumber,
               title: task.title,
               statementHtml: task.statementHtml,
+              referenceHtml: task.referenceHtml ?? "",
               answerType: task.answerType,
               correctAnswerText: answerToTeacherInput(task.correctAnswer),
+              hintHtml: task.hintHtml ?? "",
               explanationHtml: task.explanationHtml ?? "",
               videoUrl: task.videoUrl ?? "",
               source: task.source ?? "",
               difficulty: task.difficulty,
               skillTag: task.skillTag ?? "",
               isPublic: task.isPublic,
-              attachments: task.attachments,
+              attachments:
+                task.currentRevision?.attachments.map((link) => link.attachment) ?? [],
+              currentVersion: task.currentRevision?.version,
             }}
           />
         </section>

@@ -7,12 +7,12 @@ export function getNextStudyPlanStatus(
   action: StudyPlanAction
 ): StudyPlanStatus {
   if (current === "CANCELLED") {
-    throw new Error("Отменённый план нельзя изменить");
+    throw new Error("Отменённый ближайший спринт нельзя изменить");
   }
 
   if (action === "CONFIRM") {
     if (current !== "DRAFT") {
-      throw new Error("Подтвердить можно только черновик плана");
+      throw new Error("Подтвердить можно только черновик ближайшего спринта");
     }
 
     return "CONFIRMED";

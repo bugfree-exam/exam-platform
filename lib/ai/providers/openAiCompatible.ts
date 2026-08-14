@@ -18,8 +18,8 @@ export type OpenAiCompatibleProviderOptions = {
 };
 
 const systemPrompt = `Ты методический AI-ассистент преподавателя ЕГЭ по информатике.
-Составь краткий учебный план только по переданной обезличенной аналитике.
-План должен работать с конкретным навыком внутри номера ЕГЭ, а не предлагать
+Составь ближайший учебный спринт только по переданной обезличенной аналитике.
+Спринт должен работать с конкретным навыком внутри номера ЕГЭ, а не предлагать
 просто решить ещё несколько задач того же номера. Используй skillBreakdown и
 errorCauses, когда они заполнены. Если данных о навыке или причине ошибки нет,
 прямо укажи, что сначала нужна диагностика; не выдумывай причину ошибки.
@@ -90,7 +90,7 @@ function readAssistantContent(candidate: unknown): string {
   }
 
   if (typeof message.content !== "string" || message.content.length === 0) {
-    throw new Error("AI-провайдер вернул пустой план");
+    throw new Error("AI-провайдер вернул пустой ближайший спринт");
   }
 
   if (message.content.length > MAX_RESPONSE_CHARACTERS) {
@@ -123,7 +123,7 @@ function parseAssistantJson(content: string): unknown {
     }
   }
 
-  throw new Error("AI-провайдер вернул план не в формате JSON");
+  throw new Error("AI-провайдер вернул ближайший спринт не в формате JSON");
 }
 
 export class OpenAiCompatibleStudyPlanProvider implements StudyPlanProvider {

@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 
 import { requireApiRole } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { deleteStoredTaskFile } from "@/lib/taskFiles";
+import {
+  createTaskRevision,
+  taskContentFromCurrent,
+} from "@/lib/taskRevisions";
 
 export const runtime = "nodejs";
 
@@ -30,47 +33,59 @@ export async function DELETE(
       attachmentId,
     } = await context.params;
 
-    const attachment =
-      await prisma.taskAttachment.findFirst({
+    const task = await prisma.task.findFirst({
         where: {
-          id: attachmentId,
-          taskId,
-          task: {
-            isArchived: false,
-          },
+          id: taskId,
+          isArchived: false,
         },
         select: {
           id: true,
-          storedName: true,
+          egeNumber: true,
+          title: true,
+          statementHtml: true,
+          referenceHtml: true,
+          answerType: true,
+          correctAnswer: true,
+          hintHtml: true,
+          explanationHtml: true,
+          videoUrl: true,
+          source: true,
+          difficulty: true,
+          skillTag: true,
+          isPublic: true,
+          currentRevision: {
+            select: {
+              attachments: {
+                orderBy: { order: "asc" },
+                select: {
+                  attachmentId: true,
+                  attachment: { select: { originalName: true } },
+                },
+              },
+            },
+          },
         },
       });
 
-    if (!attachment) {
+    const attachment = task?.currentRevision?.attachments.find(
+      (link) => link.attachmentId === attachmentId
+    );
+
+    if (!task || !attachment) {
       return NextResponse.json(
         { message: "Файл не найден" },
         { status: 404 }
       );
     }
 
-    await prisma.taskAttachment.delete({
-      where: {
-        id: attachment.id,
-      },
-    });
-
-    try {
-      await deleteStoredTaskFile(
-        attachment.storedName
-      );
-    } catch (fileError) {
-      // Запись из базы уже удалена, поэтому файл
-      // больше невозможно скачать через приложение.
-      // Фиксируем возможный оставшийся файл в логах.
-      console.error(
-        "[TASK_ATTACHMENT_FILE_DELETE]",
-        fileError
-      );
-    }
+    await prisma.$transaction((tx) =>
+      createTaskRevision(tx, taskId, taskContentFromCurrent(task), {
+        changeNote: `Материал убран из текущей версии: ${attachment.attachment.originalName}`,
+        attachmentIds: task.currentRevision!.attachments
+          .map((link) => link.attachmentId)
+          .filter((id) => id !== attachmentId),
+      })
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {

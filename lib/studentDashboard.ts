@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { getMasteryState } from "@/lib/mastery";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ANALYTICS_LOOKBACK_DAYS = 45;
@@ -150,7 +151,8 @@ export async function getStudentToday(studentId: string) {
         take: 120,
         select: {
           isCorrect: true,
-          task: { select: { egeNumber: true } },
+          countsForMastery: true,
+          taskRevision: { select: { egeNumber: true } },
         },
       }),
       prisma.attempt.findMany({
@@ -165,7 +167,8 @@ export async function getStudentToday(studentId: string) {
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true } },
             },
           },
         },
@@ -182,7 +185,8 @@ export async function getStudentToday(studentId: string) {
           answers: {
             select: {
               isCorrect: true,
-              task: { select: { egeNumber: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true } },
             },
           },
         },
@@ -221,12 +225,18 @@ export async function getStudentToday(studentId: string) {
     taskStats.set(egeNumber, stat);
   };
 
-  for (const attempt of practiceAttempts) addAnswer(attempt.task.egeNumber, attempt.isCorrect);
+  for (const attempt of practiceAttempts) {
+    if (attempt.countsForMastery) addAnswer(attempt.taskRevision.egeNumber, attempt.isCorrect);
+  }
   for (const attempt of homeworkAttempts) {
-    for (const answer of attempt.answers) addAnswer(answer.task.egeNumber, answer.isCorrect);
+    for (const answer of attempt.answers) {
+      if (answer.countsForMastery) addAnswer(answer.taskRevision.egeNumber, answer.isCorrect);
+    }
   }
   for (const attempt of variantAttempts) {
-    for (const answer of attempt.answers) addAnswer(answer.task.egeNumber, answer.isCorrect);
+    for (const answer of attempt.answers) {
+      if (answer.countsForMastery) addAnswer(answer.taskRevision.egeNumber, answer.isCorrect);
+    }
   }
 
   const focus = Array.from(taskStats.entries())
@@ -235,7 +245,10 @@ export async function getStudentToday(studentId: string) {
       ...stat,
       percent: Math.round((stat.correct / stat.total) * 100),
     }))
-    .filter((stat) => stat.total >= 3 && stat.percent < 70)
+    .filter((stat) => {
+      const state = getMasteryState(stat.total, stat.percent);
+      return state === "CRITICAL_GAP" || state === "PRACTICE";
+    })
     .sort((a, b) => a.percent - b.percent || b.total - a.total)[0];
 
   if (focus) {

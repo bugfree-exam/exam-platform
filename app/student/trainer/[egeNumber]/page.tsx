@@ -5,6 +5,7 @@ import { TrainerTaskSolver } from "@/components/student/TrainerTaskSolver";
 import { requireStudentPage } from "@/lib/access";
 import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { calculateStudyPlanProgress } from "@/lib/ai/studyPlanProgress";
+import { getKnownTaskIds } from "@/lib/masteryEvidence";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export default async function TrainerNumberPage({
                 studyPlanAttemptKind: true,
                 errorCause: true,
                 isCorrect: true,
+                countsForMastery: true,
                 createdAt: true,
               },
             },
@@ -107,14 +109,19 @@ export default async function TrainerNumberPage({
     ? allTaskIds.filter((item) => item.skillTag === linkedAction.skill)
     : [];
   const taskIds = skillMatchedTasks.length > 0 ? skillMatchedTasks : allTaskIds;
-  const usedTaskIds = new Set(
-    linkedPlan?.practiceAttempts.map((attempt) => attempt.taskId) ?? []
+  const knownTaskIds = await getKnownTaskIds(
+    user.id,
+    taskIds.map((item) => item.id)
   );
+  const requestedControl = query.mode === "control";
   const requestedTaskExists = taskIds.some((item) => item.id === query.task);
-  const unseenTask = taskIds.find((item) => !usedTaskIds.has(item.id));
-  const currentTaskId = requestedTaskExists
-    ? query.task!
-    : unseenTask?.id ?? taskIds[0].id;
+  const unseenTask = taskIds.find((item) => !knownTaskIds.has(item.id));
+  const currentTaskId =
+    requestedControl && unseenTask
+      ? unseenTask.id
+      : requestedTaskExists
+        ? query.task!
+        : unseenTask?.id ?? taskIds[0].id;
   const currentPosition =
     taskIds.findIndex((item) => item.id === currentTaskId) + 1;
 
@@ -128,17 +135,24 @@ export default async function TrainerNumberPage({
         egeNumber: true,
         title: true,
         statementHtml: true,
+        referenceHtml: true,
         answerType: true,
         difficulty: true,
-        attachments: {
+        currentRevision: {
           select: {
-            id: true,
-            originalName: true,
-            extension: true,
-            sizeBytes: true,
-          },
-          orderBy: {
-            createdAt: "asc",
+            attachments: {
+              orderBy: { order: "asc" },
+              select: {
+                attachment: {
+                  select: {
+                    id: true,
+                    originalName: true,
+                    extension: true,
+                    sizeBytes: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -146,6 +160,7 @@ export default async function TrainerNumberPage({
     prisma.practiceAttempt.findMany({
       where: {
         studentId: user.id,
+        countsForMastery: true,
         task: {
           egeNumber,
         },
@@ -159,6 +174,8 @@ export default async function TrainerNumberPage({
   if (!task) {
     notFound();
   }
+  const attachments =
+    task.currentRevision?.attachments.map((link) => link.attachment) ?? [];
 
   const linkedActionProgress =
     validatedLinkedPlan?.success && linkedPlan
@@ -167,7 +184,6 @@ export default async function TrainerNumberPage({
           linkedPlan.practiceAttempts
         ).actions[requestedActionIndex]
       : undefined;
-  const requestedControl = query.mode === "control";
   const controlAvailable = Boolean(
     linkedActionProgress?.accuracyMet &&
       linkedActionProgress.controlAvailableAt &&
@@ -234,7 +250,7 @@ export default async function TrainerNumberPage({
                 <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 font-mono text-[11px] text-emerald-200">
                   {studyPlanContext.attemptKind === "CONTROL"
                     ? "контроль освоения"
-                    : `мой план · ${Math.min(studyPlanContext.completedBefore, studyPlanContext.target)}/${studyPlanContext.target}`}
+                    : `ближайший спринт · ${Math.min(studyPlanContext.completedBefore, studyPlanContext.target)}/${studyPlanContext.target}`}
                 </span>
               ) : null}
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] text-slate-300">
@@ -269,20 +285,27 @@ export default async function TrainerNumberPage({
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
               task.condition
             </div>
-            <div
+          <div
               className="prose prose-slate mt-5 max-w-none break-words [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-xl [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
               dangerouslySetInnerHTML={{
                 __html: task.statementHtml,
               }}
-            />
+          />
 
-            {task.attachments.length > 0 ? (
+          {task.referenceHtml ? (
+            <details className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <summary className="cursor-pointer font-black text-emerald-900">Открыть справочный материал до решения</summary>
+              <div className="prose prose-slate mt-4 max-w-none" dangerouslySetInnerHTML={{ __html: task.referenceHtml }} />
+            </details>
+          ) : null}
+
+          {attachments.length > 0 ? (
               <div className="mt-7 border-t border-slate-200 pt-5">
                 <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
                   task.files
                 </div>
                 <div className="mt-3 space-y-2">
-                  {task.attachments.map((attachment) => (
+                {attachments.map((attachment) => (
                     <a
                       key={attachment.id}
                       href={`/api/task-attachments/${attachment.id}/download`}

@@ -58,17 +58,24 @@ export default async function PracticeTaskPage({
       egeNumber: true,
       title: true,
       statementHtml: true,
+      referenceHtml: true,
       answerType: true,
       difficulty: true,
-      attachments: {
+      currentRevision: {
         select: {
-          id: true,
-          originalName: true,
-          extension: true,
-          sizeBytes: true,
-        },
-        orderBy: {
-          createdAt: "asc",
+          attachments: {
+            orderBy: { order: "asc" },
+            select: {
+              attachment: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  extension: true,
+                  sizeBytes: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -77,6 +84,8 @@ export default async function PracticeTaskPage({
   if (!task) {
     notFound();
   }
+  const attachments =
+    task.currentRevision?.attachments.map((link) => link.attachment) ?? [];
 
   const tasksOfSameNumber = await prisma.task.findMany({
     where: {
@@ -152,11 +161,18 @@ export default async function PracticeTaskPage({
             dangerouslySetInnerHTML={{ __html: task.statementHtml }}
           />
 
-          {task.attachments.length > 0 ? (
+          {task.referenceHtml ? (
+            <details className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+              <summary className="cursor-pointer font-black text-emerald-900">Открыть справочный материал</summary>
+              <div className="prose prose-slate mt-4 max-w-none" dangerouslySetInnerHTML={{ __html: task.referenceHtml }} />
+            </details>
+          ) : null}
+
+          {attachments.length > 0 ? (
             <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">
               <h2 className="font-black">Файлы к заданию</h2>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {task.attachments.map((attachment) => (
+                {attachments.map((attachment) => (
                   <a
                     key={attachment.id}
                     href={`/api/public/task-attachments/${attachment.id}/download`}

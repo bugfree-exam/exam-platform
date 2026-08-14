@@ -97,6 +97,11 @@ enum StudyPlanAttemptKind {
   CONTROL
 }
 
+enum PracticeFeedbackStage {
+  HINT
+  SOLUTION
+}
+
 enum LearningErrorCause {
   THEORY_GAP
   ALGORITHM_GAP
@@ -206,20 +211,23 @@ model AiGeneration {
 }
 
 model Task {
-  id              String           @id @default(cuid())
-  egeNumber       Int
-  title           String
-  statementHtml   String
-  answerType      TaskAnswerType
-  correctAnswer   Json
-  explanationHtml String?
-  videoUrl        String?
-  source          String?
-  difficulty      Int?
-  skillTag        String?
-  isArchived      Boolean          @default(false)
-  isPublic        Boolean          @default(true)
-  attachments     TaskAttachment[]
+  id                String           @id @default(cuid())
+  egeNumber         Int
+  title             String
+  statementHtml     String
+  referenceHtml     String?
+  answerType        TaskAnswerType
+  correctAnswer     Json
+  hintHtml          String?
+  explanationHtml   String?
+  videoUrl          String?
+  source            String?
+  difficulty        Int?
+  skillTag          String?
+  isArchived        Boolean          @default(false)
+  isPublic          Boolean          @default(true)
+  attachments       TaskAttachment[]
+  currentRevisionId String?          @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -229,10 +237,46 @@ model Task {
   practiceAttempts PracticeAttempt[]
   variantTasks     VariantTask[]
   variantAnswers   VariantAttemptAnswer[]
+  revisions        TaskRevision[]         @relation("TaskRevisions")
+  currentRevision  TaskRevision?          @relation("CurrentTaskRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
 
   @@index([egeNumber])
   @@index([egeNumber, skillTag])
   @@index([isPublic, isArchived, egeNumber])
+}
+
+model TaskRevision {
+  id              String         @id @default(cuid())
+  taskId          String
+  version         Int
+  egeNumber       Int
+  title           String
+  statementHtml   String
+  referenceHtml   String?
+  answerType      TaskAnswerType
+  correctAnswer   Json
+  hintHtml        String?
+  explanationHtml String?
+  videoUrl        String?
+  source          String?
+  difficulty      Int?
+  skillTag        String?
+  isPublic        Boolean        @default(true)
+  changeNote      String?
+  createdAt       DateTime       @default(now())
+
+  task             Task                     @relation("TaskRevisions", fields: [taskId], references: [id], onDelete: Restrict)
+  currentForTask   Task?                    @relation("CurrentTaskRevision")
+  attachments      TaskRevisionAttachment[]
+  homeworkTasks    HomeworkTask[]
+  attemptAnswers   AttemptAnswer[]
+  practiceAttempts PracticeAttempt[]
+  variantTasks     VariantTask[]
+  variantAnswers   VariantAttemptAnswer[]
+
+  @@unique([taskId, version])
+  @@index([taskId, createdAt])
+  @@index([egeNumber, skillTag])
 }
 
 model TaskAttachment {
@@ -249,7 +293,23 @@ model TaskAttachment {
 
   createdAt DateTime @default(now())
 
+  revisionLinks TaskRevisionAttachment[]
+
   @@index([taskId])
+}
+
+model TaskRevisionAttachment {
+  id           String @id @default(cuid())
+  revisionId   String
+  attachmentId String
+  order        Int
+
+  revision   TaskRevision   @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  attachment TaskAttachment @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+
+  @@unique([revisionId, attachmentId])
+  @@unique([revisionId, order])
+  @@index([attachmentId])
 }
 
 model Homework {
@@ -268,17 +328,20 @@ model Homework {
 }
 
 model HomeworkTask {
-  id         String @id @default(cuid())
-  homeworkId String
-  taskId     String
-  order      Int
+  id             String @id @default(cuid())
+  homeworkId     String
+  taskId         String
+  taskRevisionId String
+  order          Int
 
-  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
-  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  homework     Homework     @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskRevision TaskRevision @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([homeworkId, taskId])
   @@index([homeworkId])
   @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model HomeworkAssignment {
@@ -318,26 +381,31 @@ model Attempt {
 }
 
 model AttemptAnswer {
-  id        String @id @default(cuid())
-  attemptId String
-  taskId    String
+  id             String @id @default(cuid())
+  attemptId      String
+  taskId         String
+  taskRevisionId String
 
   rawAnswer        Json
   normalizedAnswer Json?
   isCorrect        Boolean @default(false)
+  countsForMastery Boolean @default(true)
 
-  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attempt      Attempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskRevision TaskRevision @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([attemptId, taskId])
   @@index([attemptId])
   @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model PracticeAttempt {
   id                   String                @id @default(cuid())
   studentId            String
   taskId               String
+  taskRevisionId       String
   studyPlanId          String?
   studyPlanActionIndex Int?
   studyPlanAttemptKind StudyPlanAttemptKind?
@@ -345,19 +413,23 @@ model PracticeAttempt {
 
   rawAnswer        Json
   normalizedAnswer Json?
-  isCorrect        Boolean @default(false)
+  isCorrect        Boolean               @default(false)
+  countsForMastery Boolean               @default(true)
+  feedbackStage    PracticeFeedbackStage @default(SOLUTION)
 
   createdAt DateTime @default(now())
 
-  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  task      Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  studyPlan StudentStudyPlan? @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
+  student      User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task         Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskRevision TaskRevision      @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
+  studyPlan    StudentStudyPlan? @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
   @@index([studentId, taskId])
   @@index([studyPlanId, studyPlanActionIndex, createdAt])
   @@index([errorCause, createdAt])
   @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model ExamVariant {
@@ -378,19 +450,22 @@ model ExamVariant {
 }
 
 model VariantTask {
-  id        String @id @default(cuid())
-  variantId String
-  taskId    String
-  order     Int
-  points    Int    @default(1)
+  id             String @id @default(cuid())
+  variantId      String
+  taskId         String
+  taskRevisionId String
+  order          Int
+  points         Int    @default(1)
 
-  variant ExamVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  task    Task        @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  variant      ExamVariant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  taskRevision TaskRevision @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([variantId, taskId])
   @@unique([variantId, order])
   @@index([variantId])
   @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model VariantAttempt {
@@ -432,21 +507,25 @@ model VariantAssignment {
 }
 
 model VariantAttemptAnswer {
-  id        String @id @default(cuid())
-  attemptId String
-  taskId    String
+  id             String @id @default(cuid())
+  attemptId      String
+  taskId         String
+  taskRevisionId String
 
   rawAnswer        Json
   normalizedAnswer Json?
   isCorrect        Boolean @default(false)
   awardedPoints    Int     @default(0)
+  countsForMastery Boolean @default(true)
 
-  attempt VariantAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  task    Task           @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  attempt      VariantAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  taskRevision TaskRevision   @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
 
   @@unique([attemptId, taskId])
   @@index([attemptId])
   @@index([taskId])
+  @@index([taskRevisionId])
 }
 
 model ReminderDelivery {

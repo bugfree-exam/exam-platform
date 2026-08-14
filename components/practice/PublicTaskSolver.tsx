@@ -13,7 +13,9 @@ type AnswerType =
 type CheckResult = {
   isCorrect: boolean;
   normalizedAnswer: unknown;
-  correctAnswer: unknown;
+  feedbackStage: "HINT" | "SOLUTION";
+  correctAnswer: unknown | null;
+  hintHtml: string | null;
   explanationHtml: string | null;
 };
 
@@ -144,12 +146,18 @@ export function PublicTaskSolver({
             {result.isCorrect ? "Верно!" : "Пока неверно"}
           </div>
 
-          <div className="mt-3 text-sm text-slate-700">
-            Правильный ответ:{" "}
-            <strong className="whitespace-pre-wrap font-mono">
-              {formatAnswer(result.correctAnswer)}
-            </strong>
-          </div>
+          {result.correctAnswer !== null ? (
+            <div className="mt-3 text-sm text-slate-700">
+              Правильный ответ:{" "}
+              <strong className="whitespace-pre-wrap font-mono">
+                {formatAnswer(result.correctAnswer)}
+              </strong>
+            </div>
+          ) : null}
+
+          {result.hintHtml ? (
+            <div className="prose prose-slate mt-4 max-w-none rounded-xl border border-amber-300 bg-white p-4 text-sm" dangerouslySetInnerHTML={{ __html: result.hintHtml }} />
+          ) : null}
 
           {result.explanationHtml ? (
             <div
@@ -160,7 +168,18 @@ export function PublicTaskSolver({
             />
           ) : null}
 
-          {nextTaskId ? (
+          {!result.isCorrect ? (
+            <button
+              type="button"
+              onClick={() => {
+                setResult(null);
+                setAnswer("");
+              }}
+              className="mt-5 w-full rounded-xl bg-amber-700 px-5 py-3 text-sm font-black text-white"
+            >
+              Попробовать ещё раз →
+            </button>
+          ) : nextTaskId ? (
             <button
               type="button"
               onClick={() => router.push(`/practice/${nextTaskId}`)}

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:ai": "node --import tsx --test lib/ai/ai.test.ts",
+    "test:p0": "node --import tsx --test lib/p0-methodology.test.ts",
     "demo:ai:seed": "node --env-file=.env --import tsx scripts/seed-ai-demo.ts seed",
     "demo:ai:clear": "node --env-file=.env --import tsx scripts/seed-ai-demo.ts clear"
   },

@@ -1,4 +1,4 @@
-import { TaskAnswerType, UserRole } from "@prisma/client";
+import { Prisma, TaskAnswerType, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -9,6 +9,7 @@ import {
   hasEditorContent,
   sanitizeEditorHtml,
 } from "@/lib/sanitizeHtml";
+import { createTaskRevision } from "@/lib/taskRevisions";
 
 export const runtime = "nodejs";
 
@@ -16,8 +17,10 @@ const taskSchema = z.object({
   egeNumber: z.number().int().min(1).max(27),
   title: z.string().min(1).max(200),
   statementHtml: z.string().min(1),
+  referenceHtml: z.string().optional().nullable(),
   answerType: z.nativeEnum(TaskAnswerType),
   correctAnswerText: z.string().min(1),
+  hintHtml: z.string().optional().nullable(),
   explanationHtml: z.string().optional().nullable(),
   videoUrl: z.string().optional().nullable(),
   source: z.string().optional().nullable(),
@@ -121,6 +124,12 @@ export async function POST(request: Request) {
 
     const statementHtml = sanitizeEditorHtml(parsed.data.statementHtml);
 
+    const referenceHtml = parsed.data.referenceHtml
+      ? sanitizeEditorHtml(parsed.data.referenceHtml)
+      : null;
+    const hintHtml = parsed.data.hintHtml
+      ? sanitizeEditorHtml(parsed.data.hintHtml)
+      : null;
     const explanationHtml = parsed.data.explanationHtml
       ? sanitizeEditorHtml(parsed.data.explanationHtml)
       : null;
@@ -151,20 +160,47 @@ export async function POST(request: Request) {
       );
     }
 
-    const task = await prisma.task.create({
-      data: {
+    const task = await prisma.$transaction(async (tx) => {
+      const createdTask = await tx.task.create({
+        data: {
         egeNumber: parsed.data.egeNumber,
         title: parsed.data.title.trim(),
         statementHtml,
+        referenceHtml,
         answerType: parsed.data.answerType,
         correctAnswer,
+        hintHtml,
         explanationHtml,
         videoUrl: parsed.data.videoUrl?.trim() || null,
         source: parsed.data.source?.trim() || null,
         difficulty: parsed.data.difficulty ?? null,
         skillTag: parsed.data.skillTag?.trim() || null,
         isPublic: parsed.data.isPublic,
-      },
+        },
+      });
+
+      await createTaskRevision(
+        tx,
+        createdTask.id,
+        {
+          egeNumber: parsed.data.egeNumber,
+          title: parsed.data.title.trim(),
+          statementHtml,
+          referenceHtml,
+          answerType: parsed.data.answerType,
+          correctAnswer: correctAnswer as Prisma.InputJsonValue,
+          hintHtml,
+          explanationHtml,
+          videoUrl: parsed.data.videoUrl?.trim() || null,
+          source: parsed.data.source?.trim() || null,
+          difficulty: parsed.data.difficulty ?? null,
+          skillTag: parsed.data.skillTag?.trim() || null,
+          isPublic: parsed.data.isPublic,
+        },
+        { changeNote: "Создана исходная версия", attachmentIds: [] }
+      );
+
+      return createdTask;
     });
 
     return NextResponse.json({ task }, { status: 201 });

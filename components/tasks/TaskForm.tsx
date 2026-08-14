@@ -21,8 +21,10 @@ type TaskFormInitialData = {
   egeNumber: number;
   title: string;
   statementHtml: string;
+  referenceHtml: string;
   answerType: AnswerType;
   correctAnswerText: string;
+  hintHtml: string;
   explanationHtml: string;
   videoUrl: string;
   source: string;
@@ -30,6 +32,7 @@ type TaskFormInitialData = {
   skillTag: string;
   isPublic: boolean;
   attachments: TaskAttachmentItem[];
+  currentVersion?: number;
 };
 
 type TaskFormProps = {
@@ -69,8 +72,10 @@ const DEFAULT_DATA: TaskFormInitialData = {
   egeNumber: 1,
   title: "",
   statementHtml: "",
+  referenceHtml: "",
   answerType: "NUMBER",
   correctAnswerText: "",
+  hintHtml: "",
   explanationHtml: "",
   videoUrl: "",
   source: "",
@@ -166,16 +171,19 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
   const [egeNumber, setEgeNumber] = useState(data.egeNumber);
   const [title, setTitle] = useState(data.title);
   const [statementHtml, setStatementHtml] = useState(data.statementHtml);
+  const [referenceHtml, setReferenceHtml] = useState(data.referenceHtml);
   const [answerType, setAnswerType] = useState<AnswerType>(data.answerType);
   const [correctAnswerText, setCorrectAnswerText] = useState(
     data.correctAnswerText
   );
+  const [hintHtml, setHintHtml] = useState(data.hintHtml);
   const [explanationHtml, setExplanationHtml] = useState(data.explanationHtml);
   const [videoUrl, setVideoUrl] = useState(data.videoUrl);
   const [source, setSource] = useState(data.source);
   const [difficulty, setDifficulty] = useState<number | null>(data.difficulty);
   const [skillTag, setSkillTag] = useState(data.skillTag);
   const [isPublic, setIsPublic] = useState(data.isPublic);
+  const [changeNote, setChangeNote] = useState("");
 
   const [attachments, setAttachments] = useState<TaskAttachmentItem[]>(
     data.attachments
@@ -316,14 +324,17 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
           egeNumber,
           title,
           statementHtml,
+          referenceHtml,
           answerType,
           correctAnswerText,
+          hintHtml,
           explanationHtml,
           videoUrl,
           source,
           difficulty,
           skillTag,
           isPublic,
+          changeNote,
         }),
       });
 
@@ -438,6 +449,20 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
         </p>
       </div>
 
+      <div className="rounded-2xl border border-cyan-200 bg-cyan-50/50 p-4">
+        <label className="mb-1 block text-sm font-bold text-slate-800">
+          Справочный материал до решения
+        </label>
+        <p className="mb-3 text-xs leading-5 text-slate-600">
+          Краткая теория, формулы или алгоритм, которые ученик может открыть до ввода ответа. Не помещайте сюда правильный ответ или полное решение.
+        </p>
+        <RichTextEditor
+          value={referenceHtml}
+          onChange={setReferenceHtml}
+          minHeight={180}
+        />
+      </div>
+
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
           Условие задачи
@@ -525,6 +550,20 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-slate-700">
+          Подсказка после первой ошибки
+        </label>
+        <RichTextEditor
+          value={hintHtml}
+          onChange={setHintHtml}
+          minHeight={160}
+        />
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          Подсказка должна направлять к следующему шагу, но не раскрывать правильный ответ. Полное решение станет доступно только после повторной ошибки или верного ответа.
+        </p>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">
           Решение / пояснение
         </label>
         <RichTextEditor
@@ -578,6 +617,24 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
         </span>
       </label>
 
+      {mode === "edit" ? (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+          <div className="text-sm font-bold text-violet-950">
+            Будет создана версия {data.currentVersion ? `v${data.currentVersion + 1}` : "с новым номером"}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-violet-800">
+            Предыдущая версия останется в уже выданных работах и результатах. Опишите причину изменения для истории.
+          </p>
+          <input
+            value={changeNote}
+            onChange={(event) => setChangeNote(event.target.value)}
+            maxLength={500}
+            className="mt-3 w-full rounded-xl border border-violet-200 bg-white px-4 py-3 text-sm outline-none focus:border-violet-500"
+            placeholder="Например: исправлена формулировка и добавлена безопасная подсказка"
+          />
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-3">
         <button
           type="submit"
@@ -590,7 +647,7 @@ export function TaskForm({ mode, initialData }: TaskFormProps) {
               ? "Сохраняем..."
               : mode === "create" && !persistedTaskId
                 ? "Создать задачу"
-                : "Сохранить изменения"}
+                : "Создать новую версию"}
         </button>
 
         <button

@@ -16,8 +16,10 @@ export async function getStudentLearningAnalytics(studentId: string) {
           submittedAt: true,
           answers: {
             select: {
+              taskId: true,
               isCorrect: true,
-              task: { select: { egeNumber: true, skillTag: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true, skillTag: true } },
             },
           },
         },
@@ -27,10 +29,12 @@ export async function getStudentLearningAnalytics(studentId: string) {
         orderBy: { createdAt: "desc" },
         take: 500,
         select: {
+          taskId: true,
           createdAt: true,
           isCorrect: true,
+          countsForMastery: true,
           errorCause: true,
-          task: { select: { egeNumber: true, skillTag: true } },
+          taskRevision: { select: { egeNumber: true, skillTag: true } },
         },
       }),
       prisma.variantAttempt.findMany({
@@ -42,8 +46,10 @@ export async function getStudentLearningAnalytics(studentId: string) {
           submittedAt: true,
           answers: {
             select: {
+              taskId: true,
               isCorrect: true,
-              task: { select: { egeNumber: true, skillTag: true } },
+              countsForMastery: true,
+              taskRevision: { select: { egeNumber: true, skillTag: true } },
             },
           },
         },
@@ -56,9 +62,11 @@ export async function getStudentLearningAnalytics(studentId: string) {
     if (!attempt.submittedAt) continue;
     for (const answer of attempt.answers) {
       answers.push({
-        egeNumber: answer.task.egeNumber,
-        skillTag: answer.task.skillTag,
+        taskId: answer.taskId,
+        egeNumber: answer.taskRevision.egeNumber,
+        skillTag: answer.taskRevision.skillTag,
         isCorrect: answer.isCorrect,
+        countsForMastery: answer.countsForMastery,
         attemptedAt: attempt.submittedAt,
         source: "HOMEWORK",
       });
@@ -67,10 +75,12 @@ export async function getStudentLearningAnalytics(studentId: string) {
 
   for (const attempt of practiceAttempts) {
     answers.push({
-      egeNumber: attempt.task.egeNumber,
-      skillTag: attempt.task.skillTag,
+      taskId: attempt.taskId,
+      egeNumber: attempt.taskRevision.egeNumber,
+      skillTag: attempt.taskRevision.skillTag,
       errorCause: attempt.errorCause,
       isCorrect: attempt.isCorrect,
+      countsForMastery: attempt.countsForMastery,
       attemptedAt: attempt.createdAt,
       source: "PRACTICE",
     });
@@ -80,9 +90,11 @@ export async function getStudentLearningAnalytics(studentId: string) {
     if (!attempt.submittedAt) continue;
     for (const answer of attempt.answers) {
       answers.push({
-        egeNumber: answer.task.egeNumber,
-        skillTag: answer.task.skillTag,
+        taskId: answer.taskId,
+        egeNumber: answer.taskRevision.egeNumber,
+        skillTag: answer.taskRevision.skillTag,
         isCorrect: answer.isCorrect,
+        countsForMastery: answer.countsForMastery,
         attemptedAt: attempt.submittedAt,
         source: "VARIANT",
       });

@@ -34,9 +34,10 @@ export default async function TeacherVariantPage({
       tasks: {
         orderBy: { order: "asc" },
         include: {
-          task: {
+          taskRevision: {
             select: {
               id: true,
+              version: true,
               egeNumber: true,
               title: true,
               difficulty: true,
@@ -234,7 +235,7 @@ export default async function TeacherVariantPage({
             {variant.tasks.map((variantTask) => (
               <Link
                 key={variantTask.id}
-                href={`/teacher/tasks/${variantTask.task.id}`}
+                href={`/teacher/tasks/${variantTask.taskId}?version=${variantTask.taskRevision.version}`}
                 className="flex items-center gap-4 rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-300 hover:bg-cyan-50/40"
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-950 font-mono font-black text-cyan-300">
@@ -242,12 +243,12 @@ export default async function TeacherVariantPage({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate font-bold">
-                    {variantTask.task.title}
+                    {variantTask.taskRevision.title}
                   </span>
                   <span className="mt-1 block text-xs text-slate-500">
-                    №{variantTask.task.egeNumber} ЕГЭ
-                    {variantTask.task.difficulty
-                      ? ` · сложность ${variantTask.task.difficulty}/5`
+                    №{variantTask.taskRevision.egeNumber} ЕГЭ · v{variantTask.taskRevision.version}
+                    {variantTask.taskRevision.difficulty
+                      ? ` · сложность ${variantTask.taskRevision.difficulty}/5`
                       : ""}
                   </span>
                 </span>

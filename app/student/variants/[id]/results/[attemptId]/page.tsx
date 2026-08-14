@@ -58,7 +58,7 @@ export default async function StudentVariantResultPage({
           tasks: {
             orderBy: { order: "asc" },
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
@@ -90,7 +90,7 @@ export default async function StudentVariantResultPage({
   ).length;
   const partialTasks = attempt.variant.tasks.filter((variantTask) => {
     const answer = answerByTaskId.get(variantTask.taskId);
-    const maxPoints = getVariantTaskMaxPoints(variantTask.task.egeNumber);
+    const maxPoints = getVariantTaskMaxPoints(variantTask.taskRevision.egeNumber);
     return Boolean(
       answer && answer.awardedPoints > 0 && answer.awardedPoints < maxPoints
     );
@@ -247,7 +247,7 @@ export default async function StudentVariantResultPage({
                     key={variantTask.id}
                     className="rounded-full bg-white px-3 py-1 text-sm font-bold text-rose-700"
                   >
-                    №{variantTask.task.egeNumber}
+                    №{variantTask.taskRevision.egeNumber}
                   </span>
                 ))}
               </div>
@@ -259,7 +259,7 @@ export default async function StudentVariantResultPage({
           {attempt.variant.tasks.map((variantTask) => {
             const answer = answerByTaskId.get(variantTask.taskId);
             const maxPoints = getVariantTaskMaxPoints(
-              variantTask.task.egeNumber
+              variantTask.taskRevision.egeNumber
             );
             const awardedPoints = answer?.awardedPoints ?? 0;
             const isCorrect = answer?.isCorrect ?? false;
@@ -296,7 +296,7 @@ export default async function StudentVariantResultPage({
                       </span>
                     </div>
                     <h2 className="mt-3 text-xl font-black">
-                      {variantTask.task.title}
+                      {variantTask.taskRevision.title}
                     </h2>
                   </div>
                   <span className="font-mono text-sm font-black text-slate-500">
@@ -326,12 +326,12 @@ export default async function StudentVariantResultPage({
                       Правильный ответ
                     </div>
                     <pre className="mt-2 whitespace-pre-wrap font-mono text-sm">
-                      {formatAnswerForDisplay(variantTask.task.correctAnswer)}
+                      {formatAnswerForDisplay(variantTask.taskRevision.correctAnswer)}
                     </pre>
                   </div>
                 </div>
 
-                {variantTask.task.explanationHtml ? (
+                {variantTask.taskRevision.explanationHtml ? (
                   <details className="mt-4 rounded-2xl border border-slate-200">
                     <summary className="cursor-pointer px-4 py-3 text-sm font-bold">
                       Показать разбор задания
@@ -339,7 +339,7 @@ export default async function StudentVariantResultPage({
                     <div
                       className="prose prose-slate max-w-none border-t border-slate-200 px-4 py-4"
                       dangerouslySetInnerHTML={{
-                        __html: variantTask.task.explanationHtml,
+                        __html: variantTask.taskRevision.explanationHtml,
                       }}
                     />
                   </details>

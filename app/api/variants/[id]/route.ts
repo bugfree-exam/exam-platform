@@ -38,6 +38,15 @@ export async function PATCH(request: Request, context: RouteContext) {
       where: { id },
       select: {
         id: true,
+        status: true,
+        tasks: {
+          select: {
+            id: true,
+            task: {
+              select: { currentRevisionId: true },
+            },
+          },
+        },
         _count: {
           select: { tasks: true },
         },
@@ -58,15 +67,39 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const updatedVariant = await prisma.examVariant.update({
-      where: { id },
-      data: {
-        status: parsed.data.status as VariantStatus,
-      },
-      select: {
-        id: true,
-        status: true,
-      },
+    const publishingDraft =
+      variant.status === VariantStatus.DRAFT &&
+      parsed.data.status === VariantStatus.PUBLISHED;
+    if (
+      publishingDraft &&
+      variant.tasks.some((item) => !item.task.currentRevisionId)
+    ) {
+      return NextResponse.json(
+        { message: "У некоторых заданий отсутствует опубликованная версия" },
+        { status: 409 },
+      );
+    }
+
+    const updatedVariant = await prisma.$transaction(async (tx) => {
+      if (publishingDraft) {
+        await Promise.all(
+          variant.tasks.map((item) =>
+            tx.variantTask.update({
+              where: { id: item.id },
+              data: { taskRevisionId: item.task.currentRevisionId! },
+            }),
+          ),
+        );
+      }
+
+      return tx.examVariant.update({
+        where: { id },
+        data: { status: parsed.data.status as VariantStatus },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
     });
 
     return NextResponse.json({ variant: updatedVariant });

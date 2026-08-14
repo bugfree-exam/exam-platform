@@ -9,6 +9,10 @@ import {
   storeTaskFile,
   validateTaskFile,
 } from "@/lib/taskFiles";
+import {
+  createTaskRevision,
+  taskContentFromCurrent,
+} from "@/lib/taskRevisions";
 
 export const runtime = "nodejs";
 
@@ -47,10 +51,12 @@ export async function GET(
       },
       select: {
         id: true,
-        attachments: {
-          select: attachmentSelect,
-          orderBy: {
-            createdAt: "asc",
+        currentRevision: {
+          select: {
+            attachments: {
+              orderBy: { order: "asc" },
+              select: { attachment: { select: attachmentSelect } },
+            },
           },
         },
       },
@@ -64,7 +70,8 @@ export async function GET(
     }
 
     return NextResponse.json({
-      attachments: task.attachments,
+      attachments:
+        task.currentRevision?.attachments.map((link) => link.attachment) ?? [],
     });
   } catch (error) {
     console.error("[TASK_ATTACHMENTS_GET]", error);
@@ -96,9 +103,25 @@ export async function POST(
       },
       select: {
         id: true,
-        _count: {
+        egeNumber: true,
+        title: true,
+        statementHtml: true,
+        referenceHtml: true,
+        answerType: true,
+        correctAnswer: true,
+        hintHtml: true,
+        explanationHtml: true,
+        videoUrl: true,
+        source: true,
+        difficulty: true,
+        skillTag: true,
+        isPublic: true,
+        currentRevision: {
           select: {
-            attachments: true,
+            attachments: {
+              orderBy: { order: "asc" },
+              select: { attachmentId: true },
+            },
           },
         },
       },
@@ -143,11 +166,11 @@ export async function POST(
     }
 
     if (
-      task._count.attachments + files.length >
+      (task.currentRevision?.attachments.length ?? 0) + files.length >
       MAX_TASK_FILES
     ) {
       const remaining =
-        MAX_TASK_FILES - task._count.attachments;
+        MAX_TASK_FILES - (task.currentRevision?.attachments.length ?? 0);
 
       return NextResponse.json(
         {
@@ -191,9 +214,11 @@ export async function POST(
         );
       }
 
-      const attachments = await prisma.$transaction(
-        storedFiles.map((file) =>
-          prisma.taskAttachment.create({
+      const attachments = await prisma.$transaction(async (tx) => {
+        const createdAttachments = [];
+
+        for (const file of storedFiles) {
+          createdAttachments.push(await tx.taskAttachment.create({
             data: {
               taskId,
               originalName: file.originalName,
@@ -203,9 +228,21 @@ export async function POST(
               sizeBytes: file.sizeBytes,
             },
             select: attachmentSelect,
-          })
-        )
-      );
+          }));
+        }
+
+        await createTaskRevision(tx, taskId, taskContentFromCurrent(task), {
+          changeNote: `Добавлены материалы: ${createdAttachments
+            .map((attachment) => attachment.originalName)
+            .join(", ")}`,
+          attachmentIds: [
+            ...(task.currentRevision?.attachments.map((link) => link.attachmentId) ?? []),
+            ...createdAttachments.map((attachment) => attachment.id),
+          ],
+        });
+
+        return createdAttachments;
+      });
 
       return NextResponse.json(
         { attachments },

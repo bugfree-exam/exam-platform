@@ -1,12 +1,16 @@
+import { MASTERY_POLICY, type MasteryState } from "@/lib/mastery";
+
 export type AttemptSource = "HOMEWORK" | "PRACTICE" | "VARIANT";
 
 export type LearningAnswer = {
+  taskId?: string;
   egeNumber: number;
   skillTag?: string | null;
   errorCause?: import("./errorCauses").LearningErrorCauseValue | null;
   isCorrect: boolean;
   attemptedAt: Date;
   source: AttemptSource;
+  countsForMastery?: boolean;
 };
 
 export type VariantResult = {
@@ -20,12 +24,7 @@ export type LearningAnalyticsInput = {
   variants: VariantResult[];
 };
 
-export type MasteryCategory =
-  | "INSUFFICIENT_DATA"
-  | "CRITICAL_GAP"
-  | "PRACTICE"
-  | "CONSOLIDATE"
-  | "MASTERED";
+export type MasteryCategory = MasteryState;
 
 export type TopicLearningAnalytics = {
   egeNumber: number;
@@ -71,13 +70,13 @@ export type StudentLearningAnalytics = {
 };
 
 export const AI_METHODOLOGY = {
-  recentAttemptsPerTopic: 5,
-  previousAttemptsPerTopic: 5,
-  minimumAttemptsForAssessment: 3,
-  criticalAccuracyBelow: 40,
-  practiceAccuracyBelow: 65,
-  masteredAccuracyAtLeast: 85,
-  criticalErrorStreak: 3,
-  significantDecline: -30,
+  recentAttemptsPerTopic: MASTERY_POLICY.recentEvidenceWindow,
+  previousAttemptsPerTopic: MASTERY_POLICY.recentEvidenceWindow,
+  minimumAttemptsForAssessment: MASTERY_POLICY.minimumIndependentAttempts,
+  criticalAccuracyBelow: MASTERY_POLICY.criticalAccuracyBelow,
+  practiceAccuracyBelow: MASTERY_POLICY.practiceAccuracyBelow,
+  masteredAccuracyAtLeast: MASTERY_POLICY.masteredAccuracyAtLeast,
+  criticalErrorStreak: MASTERY_POLICY.criticalErrorStreak,
+  significantDecline: MASTERY_POLICY.significantDecline,
   variantTrendThreshold: 5,
 } as const;

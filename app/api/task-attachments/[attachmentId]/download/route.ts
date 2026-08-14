@@ -60,8 +60,11 @@ export async function GET(
         await prisma.taskAttachment.findFirst({
           where: {
             id: attachmentId,
-            task: {
-              isArchived: false,
+            // Файл может принадлежать старой неизменяемой версии уже
+            // архивированного задания. Архивация не должна ломать выданные ДЗ
+            // и завершённые варианты.
+            revisionLinks: {
+              some: {},
             },
           },
           select: attachmentSelect,

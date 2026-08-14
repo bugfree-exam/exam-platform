@@ -51,6 +51,7 @@ const planInclude = {
       studyPlanAttemptKind: true,
       errorCause: true,
       isCorrect: true,
+      countsForMastery: true,
       createdAt: true,
     },
   },
@@ -225,7 +226,7 @@ export async function POST(_request: Request, context: RouteContext) {
     });
 
     return NextResponse.json(
-      { message: "Не удалось сформировать учебный план" },
+      { message: "Не удалось сформировать ближайший спринт" },
       { status: 500 }
     );
   }
@@ -246,7 +247,7 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         message:
-          parsed.error.issues[0]?.message ?? "Проверьте заполнение учебного плана",
+          parsed.error.issues[0]?.message ?? "Проверьте заполнение ближайшего спринта",
       },
       { status: 400 }
     );
@@ -264,12 +265,15 @@ export async function PUT(request: Request, context: RouteContext) {
   });
 
   if (!currentPlan) {
-    return NextResponse.json({ message: "План не найден" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Ближайший спринт не найден" },
+      { status: 404 },
+    );
   }
 
   if (currentPlan.status !== StudyPlanStatus.DRAFT) {
     return NextResponse.json(
-      { message: "Редактировать можно только черновик плана" },
+      { message: "Редактировать можно только черновик ближайшего спринта" },
       { status: 409 }
     );
   }
@@ -304,7 +308,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Некорректное действие с планом" },
+      { message: "Некорректное действие с ближайшим спринтом" },
       { status: 400 }
     );
   }
@@ -321,7 +325,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   });
 
   if (!currentPlan) {
-    return NextResponse.json({ message: "План не найден" }, { status: 404 });
+    return NextResponse.json(
+      { message: "Ближайший спринт не найден" },
+      { status: 404 },
+    );
   }
 
   let nextStatus: StudyPlanStatus;

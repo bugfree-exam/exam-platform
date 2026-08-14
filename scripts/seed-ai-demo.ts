@@ -1,6 +1,7 @@
 import {
   AttemptStatus,
   HomeworkStatus,
+  Prisma,
   PrismaClient,
   TaskAnswerType,
   UserRole,
@@ -19,6 +20,49 @@ import {
 const prisma = new PrismaClient();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEMO_EGE_NUMBERS = [2, 5, 8, 13, 16] as const;
+
+async function publishInitialRevision<T extends {
+  id: string;
+  egeNumber: number;
+  title: string;
+  statementHtml: string;
+  referenceHtml: string | null;
+  answerType: TaskAnswerType;
+  correctAnswer: Prisma.JsonValue;
+  hintHtml: string | null;
+  explanationHtml: string | null;
+  videoUrl: string | null;
+  source: string | null;
+  difficulty: number | null;
+  skillTag: string | null;
+  isPublic: boolean;
+}>(task: T) {
+  const revision = await prisma.taskRevision.create({
+    data: {
+      taskId: task.id,
+      version: 1,
+      egeNumber: task.egeNumber,
+      title: task.title,
+      statementHtml: task.statementHtml,
+      referenceHtml: task.referenceHtml,
+      answerType: task.answerType,
+      correctAnswer: task.correctAnswer as Prisma.InputJsonValue,
+      hintHtml: task.hintHtml,
+      explanationHtml: task.explanationHtml,
+      videoUrl: task.videoUrl,
+      source: task.source,
+      difficulty: task.difficulty,
+      skillTag: task.skillTag,
+      isPublic: task.isPublic,
+      changeNote: "Исходная demo-версия",
+    },
+  });
+  await prisma.task.update({
+    where: { id: task.id },
+    data: { currentRevisionId: revision.id },
+  });
+  return { ...task, currentRevisionId: revision.id };
+}
 
 function assertLocalDatabase() {
   if (process.env.NODE_ENV === "production") {
@@ -41,6 +85,7 @@ function assertLocalDatabase() {
 
 async function clearDemoData() {
   await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET LOCAL app.allow_task_revision_mutation = 'on'");
     await tx.user.deleteMany({
       where: { email: { endsWith: AI_DEMO_EMAIL_SUFFIX } },
     });
@@ -49,6 +94,24 @@ async function clearDemoData() {
     });
     await tx.examVariant.deleteMany({
       where: { title: { startsWith: AI_DEMO_PREFIX } },
+    });
+    const demoTasks = await tx.task.findMany({
+      where: { title: { startsWith: AI_DEMO_PREFIX } },
+      select: { id: true },
+    });
+    const demoTaskIds = demoTasks.map((task) => task.id);
+    await tx.task.updateMany({
+      where: { id: { in: demoTaskIds } },
+      data: { currentRevisionId: null },
+    });
+    await tx.taskRevisionAttachment.deleteMany({
+      where: { revision: { taskId: { in: demoTaskIds } } },
+    });
+    await tx.taskRevision.deleteMany({
+      where: { taskId: { in: demoTaskIds } },
+    });
+    await tx.taskAttachment.deleteMany({
+      where: { taskId: { in: demoTaskIds } },
     });
     await tx.task.deleteMany({
       where: { title: { startsWith: AI_DEMO_PREFIX } },
@@ -71,7 +134,7 @@ async function createDemoTasks() {
           difficulty: 1,
           isPublic: false,
         },
-      })
+      }).then(publishInitialRevision)
     )
   );
 
@@ -90,7 +153,11 @@ async function createMixedActivity(input: {
       description: "Данные только для локальной проверки AI Assistant.",
       status: HomeworkStatus.ASSIGNED,
       tasks: {
-        create: taskList.map((task, index) => ({ taskId: task.id, order: index + 1 })),
+        create: taskList.map((task, index) => ({
+          taskId: task.id,
+          taskRevisionId: task.currentRevisionId,
+          order: index + 1,
+        })),
       },
       assignments: { create: { studentId: input.studentId } },
     },
@@ -118,9 +185,11 @@ async function createMixedActivity(input: {
         answers: {
           create: taskList.map((task, taskIndex) => ({
             taskId: task.id,
+            taskRevisionId: task.currentRevisionId,
             rawAnswer: pattern[taskIndex] ? 1 : 0,
             normalizedAnswer: pattern[taskIndex] ? 1 : 0,
             isCorrect: pattern[taskIndex],
+            countsForMastery: index === 0,
           })),
         },
       },
@@ -136,6 +205,7 @@ async function createMixedActivity(input: {
       tasks: {
         create: taskList.map((task, index) => ({
           taskId: task.id,
+          taskRevisionId: task.currentRevisionId,
           order: index + 1,
           points: 1,
         })),
@@ -167,10 +237,12 @@ async function createMixedActivity(input: {
         answers: {
           create: taskList.map((task, taskIndex) => ({
             taskId: task.id,
+            taskRevisionId: task.currentRevisionId,
             rawAnswer: pattern[taskIndex] ? 1 : 0,
             normalizedAnswer: pattern[taskIndex] ? 1 : 0,
             isCorrect: pattern[taskIndex],
             awardedPoints: pattern[taskIndex] ? 1 : 0,
+            countsForMastery: false,
           })),
         },
       },
@@ -197,16 +269,21 @@ async function seedDemoData() {
 
     const answers = materializeDemoAnswers(profile, now);
     if (answers.length > 0) {
+      const seenTaskIds = new Set<string>();
       await prisma.practiceAttempt.createMany({
         data: answers.map((answer) => {
           const task = tasks.get(answer.egeNumber);
           if (!task) throw new Error(`Нет demo-задачи №${answer.egeNumber}.`);
+          const countsForMastery = !seenTaskIds.has(task.id);
+          seenTaskIds.add(task.id);
           return {
             studentId: student.id,
             taskId: task.id,
+            taskRevisionId: task.currentRevisionId,
             rawAnswer: answer.isCorrect ? 1 : 0,
             normalizedAnswer: answer.isCorrect ? 1 : 0,
             isCorrect: answer.isCorrect,
+            countsForMastery,
             createdAt: answer.attemptedAt,
           };
         }),

@@ -44,7 +44,7 @@ export async function POST(request: Request, context: RouteContext) {
       include: {
         tasks: {
           select: {
-            task: {
+            taskRevision: {
               select: {
                 egeNumber: true,
               },
@@ -104,7 +104,7 @@ export async function POST(request: Request, context: RouteContext) {
         timerEnabled: parsed.data.timerEnabled,
         maxScore: variant.tasks.reduce(
           (sum, variantTask) =>
-            sum + getVariantTaskMaxPoints(variantTask.task.egeNumber),
+            sum + getVariantTaskMaxPoints(variantTask.taskRevision.egeNumber),
           0
         ),
       },

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { checkAnswer } from "@/lib/checkAnswer";
+import { getKnownTaskIds } from "@/lib/masteryEvidence";
 import {
   getVariantAwardedPoints,
   getVariantTaskMaxPoints,
@@ -57,7 +58,7 @@ export async function POST(request: Request, context: RouteContext) {
             tasks: {
               orderBy: { order: "asc" },
               include: {
-                task: true,
+                taskRevision: true,
               },
             },
           },
@@ -78,6 +79,10 @@ export async function POST(request: Request, context: RouteContext) {
         typeof answer.rawAnswer === "string" ? answer.rawAnswer : "",
       ])
     );
+    const knownTaskIds = await getKnownTaskIds(
+      auth.user.id,
+      attempt.variant.tasks.map((variantTask) => variantTask.taskId)
+    );
 
     const checkedAnswers = attempt.variant.tasks.map((variantTask) => {
       const rawAnswer =
@@ -85,20 +90,21 @@ export async function POST(request: Request, context: RouteContext) {
         savedAnswerByTaskId.get(variantTask.taskId) ??
         "";
       const checked = checkAnswer({
-        answerType: variantTask.task.answerType,
-        correctAnswer: variantTask.task.correctAnswer,
+        answerType: variantTask.taskRevision.answerType,
+        correctAnswer: variantTask.taskRevision.correctAnswer,
         studentAnswerText: rawAnswer,
       });
 
       const awardedPoints = getVariantAwardedPoints({
-        egeNumber: variantTask.task.egeNumber,
-        correctAnswer: variantTask.task.correctAnswer,
+        egeNumber: variantTask.taskRevision.egeNumber,
+        correctAnswer: variantTask.taskRevision.correctAnswer,
         normalizedStudentAnswer: checked.normalizedStudentAnswer,
         isFullyCorrect: checked.isCorrect,
       });
 
       return {
         taskId: variantTask.taskId,
+        taskRevisionId: variantTask.taskRevisionId,
         rawAnswer,
         normalizedAnswer: checked.normalizedStudentAnswer,
         isCorrect: checked.isCorrect,
@@ -112,7 +118,7 @@ export async function POST(request: Request, context: RouteContext) {
     );
     const maxScore = attempt.variant.tasks.reduce(
       (sum, variantTask) =>
-        sum + getVariantTaskMaxPoints(variantTask.task.egeNumber),
+        sum + getVariantTaskMaxPoints(variantTask.taskRevision.egeNumber),
       0
     );
     const percent =
@@ -131,6 +137,7 @@ export async function POST(request: Request, context: RouteContext) {
           create: {
             attemptId,
             taskId: answer.taskId,
+            taskRevisionId: answer.taskRevisionId,
             rawAnswer: answer.rawAnswer,
             normalizedAnswer:
               answer.normalizedAnswer === null
@@ -138,6 +145,7 @@ export async function POST(request: Request, context: RouteContext) {
                 : answer.normalizedAnswer,
             isCorrect: answer.isCorrect,
             awardedPoints: answer.awardedPoints,
+            countsForMastery: !knownTaskIds.has(answer.taskId),
           },
           update: {
             rawAnswer: answer.rawAnswer,
@@ -147,6 +155,7 @@ export async function POST(request: Request, context: RouteContext) {
                 : answer.normalizedAnswer,
             isCorrect: answer.isCorrect,
             awardedPoints: answer.awardedPoints,
+            countsForMastery: !knownTaskIds.has(answer.taskId),
           },
         })
       ),

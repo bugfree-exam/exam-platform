@@ -1,4 +1,9 @@
-import { Prisma, StudyPlanAttemptKind, UserRole } from "@prisma/client";
+import {
+  PracticeFeedbackStage,
+  Prisma,
+  StudyPlanAttemptKind,
+  UserRole,
+} from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -6,7 +11,12 @@ import { requireApiRole } from "@/lib/access";
 import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { calculateStudyPlanProgress } from "@/lib/ai/studyPlanProgress";
 import { checkAnswer } from "@/lib/checkAnswer";
+import { getKnownTaskIds } from "@/lib/masteryEvidence";
 import { prisma } from "@/lib/prisma";
+import {
+  canRevealPracticeSolution,
+  getPracticeFeedbackStage,
+} from "@/lib/practiceFeedback";
 
 export const runtime = "nodejs";
 
@@ -22,13 +32,13 @@ const attemptSchema = z
     if ((value.studyPlanId === undefined) !== (value.studyPlanActionIndex === undefined)) {
       context.addIssue({
         code: "custom",
-        message: "Контекст учебного плана указан не полностью",
+        message: "Контекст ближайшего спринта указан не полностью",
       });
     }
     if (value.studyPlanAttemptKind !== undefined && value.studyPlanId === undefined) {
       context.addIssue({
         code: "custom",
-        message: "Тип попытки можно указать только для учебного плана",
+        message: "Тип попытки можно указать только для ближайшего спринта",
       });
     }
   });
@@ -65,10 +75,12 @@ export async function POST(request: Request, context: RouteContext) {
       },
       select: {
         id: true,
+        currentRevisionId: true,
         egeNumber: true,
         skillTag: true,
         answerType: true,
         correctAnswer: true,
+        hintHtml: true,
         explanationHtml: true,
       },
     });
@@ -110,6 +122,7 @@ export async function POST(request: Request, context: RouteContext) {
               studyPlanAttemptKind: true,
               errorCause: true,
               isCorrect: true,
+              countsForMastery: true,
               createdAt: true,
             },
           },
@@ -118,7 +131,7 @@ export async function POST(request: Request, context: RouteContext) {
 
       if (!studyPlan) {
         return NextResponse.json(
-          { message: "Этот учебный план уже не активен" },
+          { message: "Этот ближайший спринт уже не активен" },
           { status: 409 }
         );
       }
@@ -134,7 +147,7 @@ export async function POST(request: Request, context: RouteContext) {
 
       if (!planAction || planAction.egeNumber !== task.egeNumber) {
         return NextResponse.json(
-          { message: "Задание не относится к выбранному этапу плана" },
+          { message: "Задание не относится к выбранному этапу спринта" },
           { status: 400 }
         );
       }
@@ -180,22 +193,57 @@ export async function POST(request: Request, context: RouteContext) {
       };
     }
 
+    if (!task.currentRevisionId) {
+      return NextResponse.json(
+        { message: "У задания отсутствует опубликованная версия" },
+        { status: 409 }
+      );
+    }
+
+    const [knownTaskIds, priorAttemptsOnTask] = await Promise.all([
+      getKnownTaskIds(auth.user.id, [task.id]),
+      prisma.practiceAttempt.count({
+        where: { studentId: auth.user.id, taskId: task.id },
+      }),
+    ]);
+    const countsForMastery = !knownTaskIds.has(task.id);
+
+    if (
+      studyPlanLink?.studyPlanAttemptKind === StudyPlanAttemptKind.CONTROL &&
+      !countsForMastery
+    ) {
+      return NextResponse.json(
+        { message: "Для контроля нужна новая, ранее не встречавшаяся задача" },
+        { status: 409 }
+      );
+    }
+
     const checkedAnswer = checkAnswer({
       answerType: task.answerType,
       correctAnswer: task.correctAnswer,
       studentAnswerText: parsed.data.answer,
     });
 
+    const feedbackStage = getPracticeFeedbackStage({
+      isCorrect: checkedAnswer.isCorrect,
+      priorAttemptsOnTask,
+    });
     const attempt = await prisma.practiceAttempt.create({
       data: {
         studentId: auth.user.id,
         taskId: task.id,
+        taskRevisionId: task.currentRevisionId,
         rawAnswer: parsed.data.answer,
         normalizedAnswer:
           checkedAnswer.normalizedStudentAnswer === null
             ? Prisma.JsonNull
             : checkedAnswer.normalizedStudentAnswer,
         isCorrect: checkedAnswer.isCorrect,
+        countsForMastery,
+        feedbackStage:
+          feedbackStage === "SOLUTION"
+            ? PracticeFeedbackStage.SOLUTION
+            : PracticeFeedbackStage.HINT,
         ...studyPlanLink,
       },
       select: {
@@ -214,11 +262,20 @@ export async function POST(request: Request, context: RouteContext) {
       },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
+    const knownNumberTaskIds = await getKnownTaskIds(
+      auth.user.id,
+      taskIds.map((item) => item.id)
+    );
     const currentIndex = taskIds.findIndex((item) => item.id === task.id);
+    const nextUnseenTask = taskIds.find(
+      (item) => item.id !== task.id && !knownNumberTaskIds.has(item.id)
+    );
     const nextTask =
-      taskIds.length > 1
+      nextUnseenTask ??
+      (taskIds.length > 1
         ? taskIds[(currentIndex + 1) % taskIds.length]
-        : null;
+        : null);
+    const revealSolution = canRevealPracticeSolution(feedbackStage);
 
     return NextResponse.json(
       {
@@ -227,13 +284,23 @@ export async function POST(request: Request, context: RouteContext) {
           createdAt: attempt.createdAt,
           isCorrect: checkedAnswer.isCorrect,
           normalizedAnswer: checkedAnswer.normalizedStudentAnswer,
-          correctAnswer: task.correctAnswer,
-          explanationHtml: task.explanationHtml,
+          countsForMastery,
+          feedbackStage: revealSolution ? "SOLUTION" : "HINT",
+          correctAnswer: revealSolution ? task.correctAnswer : null,
+          hintHtml:
+            !revealSolution
+              ? task.hintHtml ??
+                "<p>Перечитайте условие, выпишите входные данные и проверьте первый шаг алгоритма. Затем попробуйте ещё раз.</p>"
+              : null,
+          explanationHtml: revealSolution ? task.explanationHtml : null,
         },
         nextTaskId:
           studyPlanLink?.studyPlanAttemptKind === StudyPlanAttemptKind.CONTROL
             ? null
             : nextTask?.id ?? null,
+        nextTaskCountsForMastery: nextTask
+          ? !knownNumberTaskIds.has(nextTask.id)
+          : false,
       },
       {
         headers: {

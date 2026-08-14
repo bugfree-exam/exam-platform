@@ -49,6 +49,7 @@ export async function PATCH(request: Request, context: RouteContext) {
             tasks: {
               select: {
                 taskId: true,
+                taskRevisionId: true,
               },
             },
           },
@@ -71,6 +72,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
 
     if (entries.length > 0) {
+      const revisionByTaskId = new Map(
+        attempt.variant.tasks.map((variantTask) => [
+          variantTask.taskId,
+          variantTask.taskRevisionId,
+        ])
+      );
+
       await prisma.$transaction(
         entries.map(([taskId, rawAnswer]) =>
           prisma.variantAttemptAnswer.upsert({
@@ -83,6 +91,7 @@ export async function PATCH(request: Request, context: RouteContext) {
             create: {
               attemptId,
               taskId,
+              taskRevisionId: revisionByTaskId.get(taskId)!,
               rawAnswer,
             },
             update: {

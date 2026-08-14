@@ -1,4 +1,4 @@
-import { TaskAnswerType, UserRole } from "@prisma/client";
+import { Prisma, TaskAnswerType, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -9,6 +9,7 @@ import {
   hasEditorContent,
   sanitizeEditorHtml,
 } from "@/lib/sanitizeHtml";
+import { createTaskRevision } from "@/lib/taskRevisions";
 
 export const runtime = "nodejs";
 
@@ -16,14 +17,17 @@ const taskSchema = z.object({
   egeNumber: z.number().int().min(1).max(27),
   title: z.string().min(1).max(200),
   statementHtml: z.string().min(1),
+  referenceHtml: z.string().optional().nullable(),
   answerType: z.nativeEnum(TaskAnswerType),
   correctAnswerText: z.string().min(1),
+  hintHtml: z.string().optional().nullable(),
   explanationHtml: z.string().optional().nullable(),
   videoUrl: z.string().optional().nullable(),
   source: z.string().optional().nullable(),
   difficulty: z.number().int().min(1).max(5).optional().nullable(),
   skillTag: z.string().max(120).optional().nullable(),
   isPublic: z.boolean().default(true),
+  changeNote: z.string().max(500).optional().nullable(),
 });
 
 type RouteContext = {
@@ -48,19 +52,17 @@ export async function GET(_request: Request, context: RouteContext) {
     },
 
     include: {
-      attachments: {
-        select: {
-          id: true,
-          originalName: true,
-          extension: true,
-          mimeType: true,
-          sizeBytes: true,
-          createdAt: true,
+      currentRevision: {
+        include: {
+          attachments: {
+            orderBy: { order: "asc" },
+            include: { attachment: true },
+          },
         },
-
-        orderBy: {
-          createdAt: "asc",
-        },
+      },
+      revisions: {
+        orderBy: { version: "desc" },
+        select: { id: true, version: true, changeNote: true, createdAt: true },
       },
     },
   });
@@ -72,7 +74,14 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  return NextResponse.json({ task });
+  return NextResponse.json({
+    task: {
+      ...task,
+      attachments:
+        task.currentRevision?.attachments.map((link) => link.attachment) ?? [],
+      currentVersion: task.currentRevision?.version ?? null,
+    },
+  });
 }
 
 export async function PUT(request: Request, context: RouteContext) {
@@ -99,6 +108,12 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const statementHtml = sanitizeEditorHtml(parsed.data.statementHtml);
+    const referenceHtml = parsed.data.referenceHtml
+      ? sanitizeEditorHtml(parsed.data.referenceHtml)
+      : null;
+    const hintHtml = parsed.data.hintHtml
+      ? sanitizeEditorHtml(parsed.data.hintHtml)
+      : null;
     const explanationHtml = parsed.data.explanationHtml
       ? sanitizeEditorHtml(parsed.data.explanationHtml)
       : null;
@@ -143,42 +158,36 @@ export async function PUT(request: Request, context: RouteContext) {
       );
     }
 
-    const task = await prisma.task.update({
-      where: { id },
-
-      data: {
+    const content = {
         egeNumber: parsed.data.egeNumber,
         title: parsed.data.title.trim(),
         statementHtml,
+        referenceHtml,
         answerType: parsed.data.answerType,
-        correctAnswer,
+        correctAnswer: correctAnswer as Prisma.InputJsonValue,
+        hintHtml,
         explanationHtml,
         videoUrl: parsed.data.videoUrl?.trim() || null,
         source: parsed.data.source?.trim() || null,
         difficulty: parsed.data.difficulty ?? null,
         skillTag: parsed.data.skillTag?.trim() || null,
         isPublic: parsed.data.isPublic,
-      },
+    };
 
-      include: {
-        attachments: {
-          select: {
-            id: true,
-            originalName: true,
-            extension: true,
-            mimeType: true,
-            sizeBytes: true,
-            createdAt: true,
-          },
+    const revision = await prisma.$transaction((tx) =>
+      createTaskRevision(tx, id, content, {
+        changeNote: parsed.data.changeNote?.trim() || "Обновлено учителем",
+      })
+    );
+    const task = await prisma.task.findUnique({ where: { id } });
 
-          orderBy: {
-            createdAt: "asc",
-          },
-        },
-      },
+    if (!task) {
+      return NextResponse.json({ message: "Задача не найдена" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      task: { ...task, currentVersion: revision.version },
     });
-
-    return NextResponse.json({ task });
   } catch (error) {
     console.error("[TASKS_ID_PUT]", error);
 

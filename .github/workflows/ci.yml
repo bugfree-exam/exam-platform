@@ -53,5 +53,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: AI regression tests
+        run: npm run test:ai
+
+      - name: P0 methodology tests
+        run: npm run test:p0
+
       - name: Production build
         run: npm run build

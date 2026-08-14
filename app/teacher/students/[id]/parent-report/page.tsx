@@ -183,7 +183,7 @@ export default async function ParentReportPage({
             include: {
               tasks: {
                 include: {
-                  task: {
+                  taskRevision: {
                     select: {
                       id: true,
                       egeNumber: true,
@@ -221,7 +221,7 @@ export default async function ParentReportPage({
           },
           answers: {
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
@@ -261,7 +261,7 @@ export default async function ParentReportPage({
       : [];
 
     const weakNumbers = Array.from(
-      new Set(wrongAnswers.map((answer) => answer.task.egeNumber))
+      new Set(wrongAnswers.map((answer) => answer.taskRevision.egeNumber))
     ).sort((a, b) => a - b);
 
     return {
@@ -331,15 +331,15 @@ export default async function ParentReportPage({
 
   for (const row of homeworkRows) {
     for (const answer of row.wrongAnswers) {
-      const current = weakNumberStats.get(answer.task.egeNumber) ?? {
+      const current = weakNumberStats.get(answer.taskRevision.egeNumber) ?? {
         errors: 0,
         titles: new Set<string>(),
       };
 
       current.errors += 1;
-      current.titles.add(answer.task.title);
+      current.titles.add(answer.taskRevision.title);
 
-      weakNumberStats.set(answer.task.egeNumber, current);
+      weakNumberStats.set(answer.taskRevision.egeNumber, current);
     }
   }
 

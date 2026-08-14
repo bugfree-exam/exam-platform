@@ -5,6 +5,7 @@ import {
   type StudentLearningAnalytics,
 } from "./types";
 import type { LearningErrorCauseValue } from "./errorCauses";
+import { getMasteryState } from "@/lib/mastery";
 
 function percent(correct: number, total: number) {
   return total === 0 ? 0 : Math.round((correct / total) * 100);
@@ -17,31 +18,11 @@ function classifyTopic(input: {
   trend: number | null;
   errorStreak: number;
 }): MasteryCategory {
-  if (input.total < AI_METHODOLOGY.minimumAttemptsForAssessment) {
-    return "INSUFFICIENT_DATA";
-  }
-
-  const effectiveAccuracy = input.recentAccuracy ?? input.overallAccuracy;
-  const hasCriticalDecline =
-    input.trend !== null &&
-    input.trend <= AI_METHODOLOGY.significantDecline &&
-    effectiveAccuracy < AI_METHODOLOGY.practiceAccuracyBelow;
-
-  if (
-    effectiveAccuracy < AI_METHODOLOGY.criticalAccuracyBelow ||
-    input.errorStreak >= AI_METHODOLOGY.criticalErrorStreak ||
-    hasCriticalDecline
-  ) {
-    return "CRITICAL_GAP";
-  }
-
-  if (effectiveAccuracy < AI_METHODOLOGY.practiceAccuracyBelow) {
-    return "PRACTICE";
-  }
-  if (effectiveAccuracy < AI_METHODOLOGY.masteredAccuracyAtLeast) {
-    return "CONSOLIDATE";
-  }
-  return "MASTERED";
+  return getMasteryState(input.total, input.overallAccuracy, {
+    recentAccuracy: input.recentAccuracy,
+    trend: input.trend,
+    currentErrorStreak: input.errorStreak,
+  });
 }
 
 export function analyzeStudentLearning(
@@ -49,7 +30,11 @@ export function analyzeStudentLearning(
 ): StudentLearningAnalytics {
   const grouped = new Map<number, LearningAnalyticsInput["answers"]>();
 
-  for (const answer of input.answers) {
+  const eligibleAnswers = input.answers.filter(
+    (answer) => answer.countsForMastery !== false
+  );
+
+  for (const answer of eligibleAnswers) {
     if (!Number.isInteger(answer.egeNumber) || answer.egeNumber < 1 || answer.egeNumber > 27) {
       continue;
     }
@@ -161,15 +146,15 @@ export function analyzeStudentLearning(
           ? "DECLINING"
           : "STABLE";
   const latestVariant = variants.at(-1);
-  const totalCorrect = input.answers.filter((answer) => answer.isCorrect).length;
+  const totalCorrect = eligibleAnswers.filter((answer) => answer.isCorrect).length;
 
   return {
-    totalAnswers: input.answers.length,
-    overallAccuracy: percent(totalCorrect, input.answers.length),
+    totalAnswers: eligibleAnswers.length,
+    overallAccuracy: percent(totalCorrect, eligibleAnswers.length),
     sources: {
-      HOMEWORK: input.answers.filter((answer) => answer.source === "HOMEWORK").length,
-      PRACTICE: input.answers.filter((answer) => answer.source === "PRACTICE").length,
-      VARIANT: input.answers.filter((answer) => answer.source === "VARIANT").length,
+      HOMEWORK: eligibleAnswers.filter((answer) => answer.source === "HOMEWORK").length,
+      PRACTICE: eligibleAnswers.filter((answer) => answer.source === "PRACTICE").length,
+      VARIANT: eligibleAnswers.filter((answer) => answer.source === "VARIANT").length,
     },
     topics,
     variants: {

@@ -44,7 +44,7 @@ export const studyPlanSchema = z
     if (totalTasks > PLAN_LIMITS.maxTotalTasks) {
       context.addIssue({
         code: "custom",
-        message: `План превышает лимит ${PLAN_LIMITS.maxTotalTasks} задач`,
+        message: `Ближайший спринт превышает лимит ${PLAN_LIMITS.maxTotalTasks} задач`,
         path: ["actions"],
       });
     }
@@ -53,14 +53,14 @@ export const studyPlanSchema = z
       if (!topicNumbers.has(action.egeNumber)) {
         context.addIssue({
           code: "custom",
-          message: "Действие ссылается на тему, которой нет в плане",
+          message: "Действие ссылается на тему, которой нет в ближайшем спринте",
           path: ["actions", index, "egeNumber"],
         });
       }
       if (action.day > plan.durationDays) {
         context.addIssue({
           code: "custom",
-          message: "День действия выходит за длительность плана",
+          message: "День действия выходит за длительность ближайшего спринта",
           path: ["actions", index, "day"],
         });
       }

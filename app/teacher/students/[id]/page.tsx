@@ -112,7 +112,7 @@ export default async function TeacherStudentPage({
           },
           answers: {
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
@@ -141,6 +141,7 @@ export default async function TeacherStudentPage({
           answers: {
             select: {
               isCorrect: true,
+              countsForMastery: true,
             },
           },
         },
@@ -165,6 +166,7 @@ export default async function TeacherStudentPage({
               studyPlanAttemptKind: true,
               errorCause: true,
               isCorrect: true,
+              countsForMastery: true,
               createdAt: true,
             },
           },
@@ -224,7 +226,8 @@ export default async function TeacherStudentPage({
 
   for (const attempt of student.attempts) {
     for (const answer of attempt.answers) {
-      const current = taskNumberStats.get(answer.task.egeNumber) ?? {
+      if (!answer.countsForMastery) continue;
+      const current = taskNumberStats.get(answer.taskRevision.egeNumber) ?? {
         total: 0,
         correct: 0,
       };
@@ -235,7 +238,7 @@ export default async function TeacherStudentPage({
         current.correct += 1;
       }
 
-      taskNumberStats.set(answer.task.egeNumber, current);
+      taskNumberStats.set(answer.taskRevision.egeNumber, current);
     }
   }
 
@@ -650,7 +653,7 @@ export default async function TeacherStudentPage({
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div>
                                 <div className="font-semibold text-slate-900">
-                                  №{answer.task.egeNumber}. {answer.task.title}
+                                  №{answer.taskRevision.egeNumber}. {answer.taskRevision.title}
                                 </div>
 
                                 <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
@@ -669,7 +672,7 @@ export default async function TeacherStudentPage({
                                     </div>
                                     <div className="mt-1 break-words font-mono font-semibold text-slate-800">
                                       {formatAnswerForDisplay(
-                                        answer.task.correctAnswer
+                                        answer.taskRevision.correctAnswer
                                       )}
                                     </div>
                                   </div>

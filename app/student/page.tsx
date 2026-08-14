@@ -23,7 +23,7 @@ const studentSections: StudentSection[] = [
   {
     href: "/student/study-plan",
     label: "01 · Маршрут",
-    title: "Мой план",
+    title: "Ближайший спринт",
     description: "Персональные шаги от учителя и прогресс выполнения.",
     accent: "bg-cyan-50 text-cyan-800",
   },
@@ -149,6 +149,7 @@ export default async function StudentPage() {
             studyPlanAttemptKind: true,
             errorCause: true,
             isCorrect: true,
+            countsForMastery: true,
             createdAt: true,
           },
         },

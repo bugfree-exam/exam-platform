@@ -61,6 +61,7 @@ type StudyPlanRecord = {
       | "OTHER"
       | null;
     isCorrect: boolean;
+    countsForMastery: boolean;
     createdAt: Date;
   }>;
 };

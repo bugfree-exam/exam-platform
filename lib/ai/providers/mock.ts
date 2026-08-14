@@ -51,8 +51,8 @@ export class MockStudyPlanProvider implements StudyPlanProvider {
     }
 
     return {
-      title: "Персональный план подготовки",
-      summary: `План составлен по ${analytics.totalAnswers} ответам и фокусируется на темах, требующих внимания.`,
+      title: "Ближайший спринт подготовки",
+      summary: `Спринт составлен по ${analytics.totalAnswers} независимым ответам и фокусируется на темах, требующих внимания.`,
       durationDays: Math.min(14, Math.max(3, topics.length * 2)),
       topics: topics.map((topic) => ({
         egeNumber: topic.egeNumber,

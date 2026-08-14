@@ -124,7 +124,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Не удалось сформировать план"
+          : "Не удалось сформировать ближайший спринт"
       );
     } finally {
       setPendingAction(null);
@@ -153,7 +153,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Не удалось изменить план"
+          : "Не удалось изменить ближайший спринт"
       );
     } finally {
       setPendingAction(null);
@@ -255,7 +255,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
               </span>
             </div>
             <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-              Персональный учебный план
+              Ближайший спринт ученика
             </h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
               Черновик виден только вам. После публикации ученик получит понятный
@@ -272,8 +272,8 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
             {pendingAction === "GENERATE"
               ? "Анализируем новые данные…"
               : plans.length
-                ? "Обновить план по новым данным"
-                : "Сформировать учебный план"}
+                ? "Обновить спринт по новым данным"
+                : "Сформировать ближайший спринт"}
           </button>
         </div>
 
@@ -287,7 +287,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
       {!plan ? (
         <div className="border-t border-cyan-100 p-6">
           <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-center text-sm text-slate-500">
-            План ещё не сформирован. AI проанализирует обезличенную статистику и
+            Спринт ещё не сформирован. AI проанализирует обезличенную статистику и
             создаст первый черновик для вашей проверки.
           </div>
         </div>
@@ -311,7 +311,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                   <input value={draft.title} maxLength={120} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-400" />
                 </label>
                 <label className="text-sm font-bold text-slate-700">
-                  Дней в плане
+                  Дней в спринте
                   <input type="number" min={1} max={PLAN_LIMITS.maxDays} value={draft.durationDays} onChange={(event) => setDraft({ ...draft, durationDays: Number(event.target.value) })} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal outline-none focus:border-violet-400" />
                 </label>
               </div>
@@ -390,7 +390,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                   <p className="mt-2 text-sm leading-6 text-slate-600">{plan.summary}</p>
                 </article>
                 <article className="rounded-2xl bg-slate-950 p-5 text-white">
-                  <div className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">Выполнение плана</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.12em] text-cyan-300">Выполнение спринта</div>
                   <div className="mt-3 text-3xl font-bold">{plan.progress.percent}%</div>
                   <div className="mt-1 text-xs text-slate-400">{plan.progress.completedActions} из {plan.progress.totalActions} этапов освоено</div>
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-700">
@@ -442,7 +442,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
               <div className="mt-6 flex flex-wrap gap-3 border-t border-slate-200 pt-5">
                 {plan.status === "DRAFT" ? (
                   <>
-                    <button type="button" onClick={() => setDraft(editablePlan(plan))} disabled={isPending} className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-800">Редактировать план</button>
+                    <button type="button" onClick={() => setDraft(editablePlan(plan))} disabled={isPending} className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-800">Редактировать спринт</button>
                     <button type="button" onClick={() => updateStatus("CONFIRM")} disabled={isPending} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60">
                       {pendingAction === "CONFIRM" ? "Публикуем…" : "Утвердить и показать ученику"}
                     </button>
@@ -450,7 +450,7 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
                 ) : null}
                 {plan.status !== "CANCELLED" ? (
                   <button type="button" onClick={() => updateStatus("CANCEL")} disabled={isPending} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">
-                    {pendingAction === "CANCEL" ? "Отменяем…" : "Отменить план"}
+                    {pendingAction === "CANCEL" ? "Отменяем…" : "Отменить спринт"}
                   </button>
                 ) : null}
               </div>
@@ -461,8 +461,8 @@ export function StudentStudyPlanCard({ studentId, initialPlans }: Props) {
             <div className="mt-7 border-t border-slate-200 pt-5">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-slate-950">История планов</h3>
-                  <p className="mt-1 text-xs text-slate-400">Сохраняются AI-черновики, правки и ранее опубликованные планы.</p>
+                  <h3 className="font-bold text-slate-950">История спринтов</h3>
+                  <p className="mt-1 text-xs text-slate-400">Сохраняются AI-черновики, правки и ранее опубликованные спринты.</p>
                 </div>
                 <span className="text-xs text-slate-400">Опубликовано: {publishedPlans.length}</span>
               </div>

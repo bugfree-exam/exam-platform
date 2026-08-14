@@ -25,7 +25,7 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-[#0b2436] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200">
-              мой персональный план
+              ближайший спринт
             </span>
             <span className="text-xs font-bold text-cyan-800">
               {plan.durationDays} дней · {plan.progress.totalTasks} задач
@@ -43,7 +43,7 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
                       : "пауза перед контрольной"
                     : nextAction.goal
                 }`
-              : "План выполнен. Отличная работа — результаты уже доступны учителю."}
+              : "Спринт выполнен. Отличная работа — результаты уже доступны учителю."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {nextAction ? (
@@ -60,7 +60,7 @@ export function StudyPlanSummaryCard({ plan }: { plan: StudyPlanView }) {
               href="/student/study-plan"
               className="rounded-xl border border-cyan-200 bg-white px-4 py-2.5 text-sm font-bold text-cyan-900"
             >
-              Открыть весь план
+              Открыть ближайший спринт
             </Link>
           </div>
         </div>

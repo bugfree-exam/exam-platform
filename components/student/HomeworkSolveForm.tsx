@@ -21,6 +21,7 @@ type StudentTask = {
   egeNumber: number;
   title: string;
   statementHtml: string;
+  referenceHtml: string | null;
   answerType: AnswerType;
   difficulty: number | null;
   attachments: StudentTaskAttachment[];
@@ -597,6 +598,13 @@ export function HomeworkSolveForm({
               className="prose prose-slate mt-4 max-w-none"
               dangerouslySetInnerHTML={{ __html: task.statementHtml }}
             />
+
+            {task.referenceHtml ? (
+              <details className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                <summary className="cursor-pointer text-sm font-bold text-emerald-900">Открыть справочный материал</summary>
+                <div className="prose prose-slate mt-4 max-w-none text-sm" dangerouslySetInnerHTML={{ __html: task.referenceHtml }} />
+              </details>
+            ) : null}
 
             {task.attachments.length > 0 ? (
               <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">

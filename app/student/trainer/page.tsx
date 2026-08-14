@@ -24,10 +24,11 @@ export default async function StudentTrainerPage() {
     prisma.practiceAttempt.findMany({
       where: {
         studentId: user.id,
+        countsForMastery: true,
       },
       select: {
         isCorrect: true,
-        task: {
+        taskRevision: {
           select: {
             egeNumber: true,
           },
@@ -48,14 +49,14 @@ export default async function StudentTrainerPage() {
   >();
 
   for (const attempt of attempts) {
-    const current = statsByNumber.get(attempt.task.egeNumber) ?? {
+    const current = statsByNumber.get(attempt.taskRevision.egeNumber) ?? {
       total: 0,
       correct: 0,
     };
 
     current.total += 1;
     current.correct += attempt.isCorrect ? 1 : 0;
-    statsByNumber.set(attempt.task.egeNumber, current);
+    statsByNumber.set(attempt.taskRevision.egeNumber, current);
   }
 
   const totalTasks = taskGroups.reduce(

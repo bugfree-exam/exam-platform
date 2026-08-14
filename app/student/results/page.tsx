@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireStudentPage } from "@/lib/access";
+import { MASTERY_LABELS } from "@/lib/mastery";
 import {
   getStudentAnalytics,
   type AnalyticsPeriod,
@@ -19,32 +20,40 @@ function parsePeriod(value?: string): AnalyticsPeriod {
 }
 
 function skillTone(skill: TaskSkill) {
-  if (skill.status === "INSUFFICIENT") {
+  if (skill.status === "INSUFFICIENT_DATA") {
     return {
-      label: "Мало данных",
+      label: MASTERY_LABELS.INSUFFICIENT_DATA,
       badge: "bg-slate-100 text-slate-600",
       bar: "bg-slate-400",
     };
   }
 
-  if (skill.status === "STRONG") {
+  if (skill.status === "MASTERED") {
     return {
-      label: "Уверенно",
+      label: MASTERY_LABELS.MASTERED,
       badge: "bg-emerald-100 text-emerald-800",
       bar: "bg-emerald-500",
     };
   }
 
-  if (skill.status === "GROWING") {
+  if (skill.status === "CONSOLIDATE") {
     return {
-      label: "Развивается",
+      label: MASTERY_LABELS.CONSOLIDATE,
       badge: "bg-amber-100 text-amber-800",
       bar: "bg-amber-500",
     };
   }
 
+  if (skill.status === "PRACTICE") {
+    return {
+      label: MASTERY_LABELS.PRACTICE,
+      badge: "bg-orange-100 text-orange-800",
+      bar: "bg-orange-500",
+    };
+  }
+
   return {
-    label: "В фокус",
+    label: MASTERY_LABELS.CRITICAL_GAP,
     badge: "bg-rose-100 text-rose-800",
     bar: "bg-rose-500",
   };
@@ -164,10 +173,10 @@ export default async function StudentResultsPage({ searchParams }: PageProps) {
 
         <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-3xl border border-white bg-white p-5 shadow-sm">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Точность ответов</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Точность независимых ответов</div>
             <div className="mt-2 text-4xl font-black text-cyan-700">{analytics.accuracy}%</div>
             <p className="mt-2 text-sm text-slate-500">
-              {analytics.correctAnswers} из {analytics.totalAnswers} ответов верны
+              {analytics.correctAnswers} из {analytics.totalAnswers} первых встреч с задачами верны
             </p>
           </article>
 

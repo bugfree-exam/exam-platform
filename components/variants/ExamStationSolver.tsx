@@ -12,6 +12,7 @@ type ExamTask = {
   egeNumber: number;
   title: string;
   statementHtml: string;
+  referenceHtml: string | null;
   answerType:
     | "TEXT"
     | "NUMBER"
@@ -324,6 +325,13 @@ export function ExamStationSolver({
                     __html: currentTask.statementHtml,
                   }}
                 />
+
+                {currentTask.referenceHtml ? (
+                  <details className="mt-6 rounded border border-[#a8dab5] bg-[#e6f4ea] p-4">
+                    <summary className="cursor-pointer text-sm font-bold text-[#137333]">Справочный материал к заданию</summary>
+                    <div className="prose prose-slate mt-4 max-w-none text-sm" dangerouslySetInnerHTML={{ __html: currentTask.referenceHtml }} />
+                  </details>
+                ) : null}
 
                 {currentTask.attachments.length > 0 ? (
                   <div className="mt-6 border-t border-[#dadce0] pt-5">

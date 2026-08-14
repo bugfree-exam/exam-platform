@@ -38,6 +38,7 @@ export default async function StudentStudyPlanPage() {
           studyPlanAttemptKind: true,
           errorCause: true,
           isCorrect: true,
+          countsForMastery: true,
           createdAt: true,
         },
       },
@@ -61,7 +62,7 @@ export default async function StudentStudyPlanPage() {
 
         <header className="mt-5 overflow-hidden rounded-[32px] bg-[#092535] px-6 py-8 text-white shadow-xl sm:px-9">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300">personal.route</div>
-          <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Мой план</h1>
+          <h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">Ближайший спринт</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
             Здесь только конкретные шаги: что тренировать, сколько задач решить и
             какой результат уже засчитан.
@@ -70,10 +71,10 @@ export default async function StudentStudyPlanPage() {
 
         {!plan ? (
           <section className="mt-5 rounded-[30px] border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-black">Активного плана пока нет</h2>
+            <h2 className="text-xl font-black">Активного спринта пока нет</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Учитель сначала проверяет и корректирует рекомендации. После
-              публикации план автоматически появится здесь.
+              публикации ближайший спринт автоматически появится здесь.
             </p>
           </section>
         ) : (
@@ -116,7 +117,7 @@ export default async function StudentStudyPlanPage() {
               </div>
 
               <div className="mt-7">
-                <h3 className="text-lg font-black">Шаги плана</h3>
+                <h3 className="text-lg font-black">Шаги спринта</h3>
                 <div className="mt-3 space-y-3">
                   {plan.actions.map((action, actionIndex) => {
                     const progress = plan.progress.actions[actionIndex];
@@ -176,7 +177,7 @@ export default async function StudentStudyPlanPage() {
 
         {history.length > 0 ? (
           <section className="mt-5 rounded-[30px] border border-white bg-white p-5 shadow-sm sm:p-7">
-            <h2 className="text-xl font-black">История планов</h2>
+            <h2 className="text-xl font-black">История спринтов</h2>
             <p className="mt-1 text-sm text-slate-500">Ранее опубликованные маршруты и достигнутый результат.</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {history.map((item) => (

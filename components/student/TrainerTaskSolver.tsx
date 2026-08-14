@@ -21,13 +21,17 @@ type AttemptResult = {
   createdAt: string;
   isCorrect: boolean;
   normalizedAnswer: unknown;
-  correctAnswer: unknown;
+  countsForMastery: boolean;
+  feedbackStage: "HINT" | "SOLUTION";
+  correctAnswer: unknown | null;
+  hintHtml: string | null;
   explanationHtml: string | null;
 };
 
 type AttemptResponse = {
   attempt: AttemptResult;
   nextTaskId: string | null;
+  nextTaskCountsForMastery: boolean;
 };
 
 function formatAnswer(value: unknown) {
@@ -68,6 +72,7 @@ export function TrainerTaskSolver({
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [nextTaskId, setNextTaskId] = useState<string | null>(null);
+  const [nextTaskCountsForMastery, setNextTaskCountsForMastery] = useState(false);
   const [message, setMessage] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [errorCause, setErrorCause] = useState<LearningErrorCauseValue | "">("");
@@ -79,6 +84,7 @@ export function TrainerTaskSolver({
     setMessage("");
     setResult(null);
     setNextTaskId(null);
+    setNextTaskCountsForMastery(false);
     setIsChecking(true);
 
     try {
@@ -108,6 +114,7 @@ export function TrainerTaskSolver({
 
       setResult(data.attempt);
       setNextTaskId(data.nextTaskId);
+      setNextTaskCountsForMastery(data.nextTaskCountsForMastery);
     } catch {
       setMessage("Не удалось подключиться к серверу");
     } finally {
@@ -162,8 +169,8 @@ export function TrainerTaskSolver({
         {studyPlanContext
           ? studyPlanContext.attemptKind === "CONTROL"
             ? "Это контрольная задача после паузы. Решите её самостоятельно — результат определит, освоен ли навык."
-            : `Практика засчитается в этап плана: ${Math.min(
-              studyPlanContext.completedBefore + (result ? 1 : 0),
+            : `Практика засчитается в этап ближайшего спринта: ${Math.min(
+              studyPlanContext.completedBefore + (result?.countsForMastery ? 1 : 0),
               studyPlanContext.target
             )} из ${studyPlanContext.target}.`
           : "Результат этой проверки сразу попадёт в раздел «Результаты и ошибки»."}
@@ -226,12 +233,27 @@ export function TrainerTaskSolver({
             {result.isCorrect ? "Верно!" : "Есть ошибка"}
           </div>
 
-          <div className="mt-3 text-sm text-slate-700">
-            Правильный ответ:{" "}
-            <strong className="whitespace-pre-wrap font-mono">
-              {formatAnswer(result.correctAnswer)}
-            </strong>
-          </div>
+          {result.correctAnswer !== null ? (
+            <div className="mt-3 text-sm text-slate-700">
+              Правильный ответ:{" "}
+              <strong className="whitespace-pre-wrap font-mono">
+                {formatAnswer(result.correctAnswer)}
+              </strong>
+            </div>
+          ) : null}
+
+          {result.hintHtml ? (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-white p-4">
+              <div className="text-xs font-black uppercase tracking-wide text-amber-800">Подсказка — ответ ещё не раскрыт</div>
+              <div className="prose prose-slate mt-2 max-w-none text-sm" dangerouslySetInnerHTML={{ __html: result.hintHtml }} />
+            </div>
+          ) : null}
+
+          {!result.countsForMastery ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-xs leading-5 text-slate-600">
+              Эта задача уже встречалась раньше. Попытка сохранена для тренировки, но не доказывает освоение навыка и не повышает прогресс спринта.
+            </div>
+          ) : null}
 
           {result.explanationHtml ? (
             <div
@@ -274,21 +296,38 @@ export function TrainerTaskSolver({
             </div>
           ) : null}
 
+          {!result.isCorrect && result.feedbackStage === "HINT" ? (
+            <button
+              type="button"
+              onClick={() => {
+                setResult(null);
+                setAnswer("");
+                setNextTaskId(null);
+                setCauseSaved(false);
+              }}
+              className="mt-5 w-full rounded-xl bg-amber-700 px-5 py-3 text-sm font-black text-white transition hover:bg-amber-800"
+            >
+              Попробовать эту задачу ещё раз →
+            </button>
+          ) : null}
+
           {studyPlanContext?.attemptKind === "CONTROL" ? (
             <button
               type="button"
               onClick={() => router.push("/student/study-plan")}
               className="mt-5 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
             >
-              Вернуться к плану →
+              Вернуться к спринту →
             </button>
-          ) : nextTaskId ? (
+          ) : result.feedbackStage === "HINT" ? null : nextTaskId ? (
             <button
               type="button"
               onClick={openNextTask}
               className="mt-5 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700"
             >
-              Следующее задание №{egeNumber} →
+              {nextTaskCountsForMastery
+                ? `Новая задача №${egeNumber} →`
+                : `Повторить задачу №${egeNumber} →`}
             </button>
           ) : (
             <div className="mt-5 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600">

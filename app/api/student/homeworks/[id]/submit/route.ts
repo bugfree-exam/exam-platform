@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { checkAnswer } from "@/lib/checkAnswer";
+import { getKnownTaskIds } from "@/lib/masteryEvidence";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -68,7 +69,7 @@ export async function POST(request: Request, context: RouteContext) {
             order: "asc",
           },
           include: {
-            task: true,
+            taskRevision: true,
           },
         },
       },
@@ -92,9 +93,13 @@ export async function POST(request: Request, context: RouteContext) {
      * Проверяем только те задачи, которые реально входят в это ДЗ.
      * Лишние taskId из тела запроса игнорируются.
      */
+    const knownTaskIds = await getKnownTaskIds(
+      user.id,
+      homework.tasks.map((homeworkTask) => homeworkTask.taskId)
+    );
     const checkedAnswers = homework.tasks.map((homeworkTask) => {
-      const task = homeworkTask.task;
-      const studentAnswerText = parsed.data.answers[task.id] ?? "";
+      const task = homeworkTask.taskRevision;
+      const studentAnswerText = parsed.data.answers[homeworkTask.taskId] ?? "";
 
       const result = checkAnswer({
         answerType: task.answerType,
@@ -103,7 +108,8 @@ export async function POST(request: Request, context: RouteContext) {
       });
 
       return {
-        task,
+        taskId: homeworkTask.taskId,
+        taskRevision: task,
         rawAnswer: studentAnswerText,
         normalizedAnswer: result.normalizedStudentAnswer,
         isCorrect: result.isCorrect,
@@ -143,24 +149,22 @@ export async function POST(request: Request, context: RouteContext) {
 
         answers: {
           create: checkedAnswers.map((answer) => ({
-            task: {
-              connect: {
-                id: answer.task.id,
-              },
-            },
+            taskId: answer.taskId,
+            taskRevisionId: answer.taskRevision.id,
             rawAnswer: answer.rawAnswer,
             normalizedAnswer:
               answer.normalizedAnswer === null
                 ? Prisma.JsonNull
                 : answer.normalizedAnswer,
             isCorrect: answer.isCorrect,
+            countsForMastery: !knownTaskIds.has(answer.taskId),
           })),
         },
       },
       include: {
         answers: {
           include: {
-            task: {
+            taskRevision: {
               select: {
                 id: true,
                 egeNumber: true,
@@ -199,16 +203,17 @@ export async function POST(request: Request, context: RouteContext) {
         answers: orderedAnswers.map((answer) => ({
           taskId: answer.taskId,
           task: {
-            id: answer.task.id,
-            egeNumber: answer.task.egeNumber,
-            title: answer.task.title,
-            answerType: answer.task.answerType,
-            correctAnswer: answer.task.correctAnswer,
-            explanationHtml: answer.task.explanationHtml,
+            id: answer.taskId,
+            egeNumber: answer.taskRevision.egeNumber,
+            title: answer.taskRevision.title,
+            answerType: answer.taskRevision.answerType,
+            correctAnswer: answer.taskRevision.correctAnswer,
+            explanationHtml: answer.taskRevision.explanationHtml,
           },
           rawAnswer: answer.rawAnswer,
           normalizedAnswer: answer.normalizedAnswer,
           isCorrect: answer.isCorrect,
+          countsForMastery: answer.countsForMastery,
         })),
       },
     });

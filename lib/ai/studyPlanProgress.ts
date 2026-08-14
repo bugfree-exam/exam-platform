@@ -8,6 +8,7 @@ export type StudyPlanAttemptForProgress = {
   studyPlanAttemptKind?: "PRACTICE" | "CONTROL" | null;
   errorCause?: LearningErrorCauseValue | null;
   isCorrect: boolean;
+  countsForMastery?: boolean;
   createdAt?: Date | string;
 };
 
@@ -55,7 +56,11 @@ export function calculateStudyPlanProgress(
 ): StudyPlanProgress {
   const actions = plan.actions.map((action, actionIndex) => {
     const linkedAttempts = attempts
-      .filter((attempt) => attempt.studyPlanActionIndex === actionIndex)
+      .filter(
+        (attempt) =>
+          attempt.studyPlanActionIndex === actionIndex &&
+          attempt.countsForMastery !== false
+      )
       .sort((first, second) =>
         attemptTime(first, 0) - attemptTime(second, 0)
       );

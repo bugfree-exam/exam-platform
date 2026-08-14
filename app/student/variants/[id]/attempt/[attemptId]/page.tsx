@@ -36,21 +36,26 @@ export default async function StudentVariantAttemptPage({
           tasks: {
             orderBy: { order: "asc" },
             include: {
-              task: {
+              taskRevision: {
                 select: {
                   id: true,
                   egeNumber: true,
                   title: true,
                   statementHtml: true,
+                  referenceHtml: true,
                   answerType: true,
                   attachments: {
+                    orderBy: { order: "asc" },
                     select: {
-                      id: true,
-                      originalName: true,
-                      extension: true,
-                      sizeBytes: true,
+                      attachment: {
+                        select: {
+                          id: true,
+                          originalName: true,
+                          extension: true,
+                          sizeBytes: true,
+                        },
+                      },
                     },
-                    orderBy: { createdAt: "asc" },
                   },
                 },
               },
@@ -86,13 +91,14 @@ export default async function StudentVariantAttemptPage({
       startedAt={attempt.startedAt.toISOString()}
       savedAnswers={savedAnswers}
       tasks={attempt.variant.tasks.map((variantTask) => ({
-        id: variantTask.task.id,
+        id: variantTask.taskId,
         order: variantTask.order,
-        egeNumber: variantTask.task.egeNumber,
-        title: variantTask.task.title,
-        statementHtml: variantTask.task.statementHtml,
-        answerType: variantTask.task.answerType,
-        attachments: variantTask.task.attachments,
+        egeNumber: variantTask.taskRevision.egeNumber,
+        title: variantTask.taskRevision.title,
+        statementHtml: variantTask.taskRevision.statementHtml,
+        referenceHtml: variantTask.taskRevision.referenceHtml,
+        answerType: variantTask.taskRevision.answerType,
+        attachments: variantTask.taskRevision.attachments.map((link) => link.attachment),
       }))}
     />
   );

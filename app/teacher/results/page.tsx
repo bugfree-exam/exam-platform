@@ -36,7 +36,7 @@ export default async function TeacherResultsPage() {
       },
       answers: {
         include: {
-          task: {
+          taskRevision: {
             select: {
               id: true,
               egeNumber: true,
@@ -82,7 +82,8 @@ export default async function TeacherResultsPage() {
 
   for (const attempt of attempts) {
     for (const answer of attempt.answers) {
-      const current = taskNumberStats.get(answer.task.egeNumber) ?? {
+      if (!answer.countsForMastery) continue;
+      const current = taskNumberStats.get(answer.taskRevision.egeNumber) ?? {
         total: 0,
         correct: 0,
       };
@@ -93,7 +94,7 @@ export default async function TeacherResultsPage() {
         current.correct += 1;
       }
 
-      taskNumberStats.set(answer.task.egeNumber, current);
+      taskNumberStats.set(answer.taskRevision.egeNumber, current);
     }
   }
 
@@ -311,7 +312,7 @@ export default async function TeacherResultsPage() {
                       >
                         <div>
                           <div className="font-semibold text-slate-800">
-                            №{answer.task.egeNumber}. {answer.task.title}
+                            №{answer.taskRevision.egeNumber}. {answer.taskRevision.title}
                           </div>
 
                           <div className="mt-1 text-slate-500">
@@ -324,7 +325,7 @@ export default async function TeacherResultsPage() {
                           <div className="mt-1 text-slate-500">
                             Правильный ответ:{" "}
                             <span className="font-mono text-slate-800">
-                              {formatAnswerForDisplay(answer.task.correctAnswer)}
+                              {formatAnswerForDisplay(answer.taskRevision.correctAnswer)}
                             </span>
                           </div>
                         </div>

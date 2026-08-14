@@ -50,7 +50,7 @@ function getPathLabel(path: string | null) {
   if (path.startsWith("/student/homeworks/")) return "Домашнее задание";
   if (path.startsWith("/student/variants/")) return "Пробный вариант";
   if (path.startsWith("/student/trainer/")) return "Тренажёр";
-  if (path.startsWith("/student/study-plan")) return "Мой план";
+  if (path.startsWith("/student/study-plan")) return "Ближайший спринт";
   if (path.startsWith("/student/webinars")) return "Вебинары";
   return path;
 }
@@ -99,7 +99,7 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
           id: true,
           createdAt: true,
           isCorrect: true,
-          task: { select: { egeNumber: true, title: true } },
+          taskRevision: { select: { egeNumber: true, title: true } },
         },
       },
     },
@@ -163,7 +163,7 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
       id: `practice-${attempt.id}`,
       at: attempt.createdAt,
       type: "practice",
-      title: `Тренажёр: №${attempt.task.egeNumber} — ${attempt.task.title}`,
+      title: `Тренажёр: №${attempt.taskRevision.egeNumber} — ${attempt.taskRevision.title}`,
       details: attempt.isCorrect ? "Ответ верный" : "Допущена ошибка",
     })),
   ]

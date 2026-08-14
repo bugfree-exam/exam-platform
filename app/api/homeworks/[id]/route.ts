@@ -142,7 +142,7 @@ export async function PUT(request: Request, context: RouteContext) {
       where: {
         id,
       },
-      include: {
+      select: {
         assignments: true,
         tasks: {
           orderBy: {
@@ -193,6 +193,7 @@ export async function PUT(request: Request, context: RouteContext) {
       },
       select: {
         id: true,
+        currentRevisionId: true,
       },
     });
 
@@ -200,6 +201,13 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json(
         { message: "Некоторые задачи не найдены или находятся в архиве" },
         { status: 400 }
+      );
+    }
+    const taskById = new Map(tasks.map((task) => [task.id, task]));
+    if (tasks.some((task) => !task.currentRevisionId)) {
+      return NextResponse.json(
+        { message: "У некоторых задач отсутствует опубликованная версия" },
+        { status: 409 }
       );
     }
 
@@ -329,6 +337,7 @@ export async function PUT(request: Request, context: RouteContext) {
                 tasks: {
                   create: uniqueTaskIds.map((taskId, index) => ({
                     taskId,
+                    taskRevisionId: taskById.get(taskId)!.currentRevisionId!,
                     order: index + 1,
                   })),
                 },
@@ -390,6 +399,15 @@ export async function PATCH(request: Request, context: RouteContext) {
       },
       select: {
         id: true,
+        status: true,
+        tasks: {
+          select: {
+            id: true,
+            task: {
+              select: { currentRevisionId: true },
+            },
+          },
+        },
       },
     });
 
@@ -400,13 +418,35 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const updatedHomework = await prisma.homework.update({
-      where: {
-        id,
-      },
-      data: {
-        status: parsed.data.status,
-      },
+    const publishingDraft =
+      homework.status === HomeworkStatus.DRAFT &&
+      parsed.data.status === HomeworkStatus.ASSIGNED;
+    if (
+      publishingDraft &&
+      homework.tasks.some((item) => !item.task.currentRevisionId)
+    ) {
+      return NextResponse.json(
+        { message: "У некоторых задач отсутствует опубликованная версия" },
+        { status: 409 },
+      );
+    }
+
+    const updatedHomework = await prisma.$transaction(async (tx) => {
+      if (publishingDraft) {
+        await Promise.all(
+          homework.tasks.map((item) =>
+            tx.homeworkTask.update({
+              where: { id: item.id },
+              data: { taskRevisionId: item.task.currentRevisionId! },
+            }),
+          ),
+        );
+      }
+
+      return tx.homework.update({
+        where: { id },
+        data: { status: parsed.data.status },
+      });
     });
 
     return NextResponse.json({ homework: updatedHomework });

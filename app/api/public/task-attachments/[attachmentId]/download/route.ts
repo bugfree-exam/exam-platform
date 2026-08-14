@@ -23,6 +23,18 @@ export async function GET(_request: Request, context: RouteContext) {
         isPublic: true,
         isArchived: false,
       },
+      revisionLinks: {
+        some: {
+          revision: {
+            currentForTask: {
+              is: {
+                isPublic: true,
+                isArchived: false,
+              },
+            },
+          },
+        },
+      },
     },
     select: {
       storedName: true,

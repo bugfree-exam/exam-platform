@@ -25,17 +25,25 @@ export async function GET(_request: Request, context: RouteContext) {
       egeNumber: true,
       title: true,
       statementHtml: true,
+      referenceHtml: true,
       answerType: true,
       difficulty: true,
-      attachments: {
+      currentRevision: {
         select: {
-          id: true,
-          originalName: true,
-          extension: true,
-          sizeBytes: true,
-        },
-        orderBy: {
-          createdAt: "asc",
+          version: true,
+          attachments: {
+            orderBy: { order: "asc" },
+            select: {
+              attachment: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  extension: true,
+                  sizeBytes: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -49,7 +57,15 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   return NextResponse.json(
-    { task },
+    {
+      task: {
+        ...task,
+        version: task.currentRevision?.version ?? null,
+        attachments:
+          task.currentRevision?.attachments.map((link) => link.attachment) ?? [],
+        currentRevision: undefined,
+      },
+    },
     {
       headers: {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=300",

@@ -80,6 +80,34 @@ enum WebinarMaterialType {
   OTHER
 }
 
+enum StudyPlanStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum AiGenerationStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum StudyPlanAttemptKind {
+  PRACTICE
+  CONTROL
+}
+
+enum LearningErrorCause {
+  THEORY_GAP
+  ALGORITHM_GAP
+  IMPLEMENTATION_ERROR
+  CONDITION_READING
+  CALCULATION_ERROR
+  NO_CHECKING
+  TIME_PRESSURE
+  OTHER
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -90,12 +118,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedHomeworks   HomeworkAssignment[]
-  attempts            Attempt[]
-  practiceAttempts    PracticeAttempt[]
-  variantAttempts     VariantAttempt[]
-  variantAssignments  VariantAssignment[]
-  reminderDeliveries  ReminderDelivery[]
+  assignedHomeworks  HomeworkAssignment[]
+  attempts           Attempt[]
+  practiceAttempts   PracticeAttempt[]
+  variantAttempts    VariantAttempt[]
+  variantAssignments VariantAssignment[]
+  reminderDeliveries ReminderDelivery[]
+  studyPlans         StudentStudyPlan[]
+  aiGenerations      AiGeneration[]
 
   lastActivityAt DateTime?
 
@@ -115,6 +145,49 @@ model User {
   @@index([role, studentStatus])
 }
 
+model StudentStudyPlan {
+  id                String          @id @default(cuid())
+  studentId         String
+  generationId      String          @unique
+  status            StudyPlanStatus @default(DRAFT)
+  title             String
+  summary           String
+  durationDays      Int
+  topics            Json
+  actions           Json
+  analyticsSnapshot Json
+  teacherEditedAt   DateTime?
+  confirmedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  student          User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  generation       AiGeneration      @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  practiceAttempts PracticeAttempt[]
+
+  @@index([studentId, createdAt])
+  @@index([studentId, status])
+}
+
+model AiGeneration {
+  id                String             @id @default(cuid())
+  studentId         String
+  provider          String
+  status            AiGenerationStatus @default(PENDING)
+  analyticsSnapshot Json
+  outputSnapshot    Json?
+  errorMessage      String?
+  startedAt         DateTime           @default(now())
+  completedAt       DateTime?
+
+  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studyPlan StudentStudyPlan?
+
+  @@index([studentId, startedAt])
+  @@index([status, startedAt])
+}
+
 model Task {
   id              String           @id @default(cuid())
   egeNumber       Int
@@ -126,6 +199,7 @@ model Task {
   videoUrl        String?
   source          String?
   difficulty      Int?
+  skillTag        String?
   isArchived      Boolean          @default(false)
   isPublic        Boolean          @default(true)
   attachments     TaskAttachment[]
@@ -140,6 +214,7 @@ model Task {
   variantAnswers   VariantAttemptAnswer[]
 
   @@index([egeNumber])
+  @@index([egeNumber, skillTag])
   @@index([isPublic, isArchived, egeNumber])
 }
 
@@ -243,9 +318,13 @@ model AttemptAnswer {
 }
 
 model PracticeAttempt {
-  id        String @id @default(cuid())
-  studentId String
-  taskId    String
+  id                   String                @id @default(cuid())
+  studentId            String
+  taskId               String
+  studyPlanId          String?
+  studyPlanActionIndex Int?
+  studyPlanAttemptKind StudyPlanAttemptKind?
+  errorCause           LearningErrorCause?
 
   rawAnswer        Json
   normalizedAnswer Json?
@@ -253,11 +332,14 @@ model PracticeAttempt {
 
   createdAt DateTime @default(now())
 
-  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  task    Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  task      Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studyPlan StudentStudyPlan? @relation(fields: [studyPlanId], references: [id], onDelete: SetNull)
 
   @@index([studentId, createdAt])
   @@index([studentId, taskId])
+  @@index([studyPlanId, studyPlanActionIndex, createdAt])
+  @@index([errorCause, createdAt])
   @@index([taskId])
 }
 
@@ -304,7 +386,7 @@ model VariantAttempt {
   maxScore Int   @default(0)
   percent  Float @default(0)
 
-  timerEnabled Boolean  @default(true)
+  timerEnabled Boolean   @default(true)
   startedAt    DateTime  @default(now())
   submittedAt  DateTime?
 
@@ -318,11 +400,11 @@ model VariantAttempt {
 }
 
 model VariantAssignment {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   variantId  String
   studentId  String
   deadline   DateTime?
-  assignedAt DateTime @default(now())
+  assignedAt DateTime  @default(now())
 
   variant ExamVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   student User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -413,8 +495,8 @@ model WebinarSchedule {
   topic        String
   announcement String?
   joinUrl      String
-  scheduledAt DateTime
-  isPublished Boolean  @default(true)
+  scheduledAt  DateTime
+  isPublished  Boolean  @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

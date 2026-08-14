@@ -19,14 +19,25 @@
   }
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body[data-telegram-enabled="false"] a[href="/student/telegram"] {
   display: none !important;
+}
+
+.mobile-bottom-nav {
+  display: none;
 }
 
 .ProseMirror {
@@ -138,4 +149,297 @@ body[data-telegram-enabled="false"] a[href="/student/telegram"] {
 .ProseMirror td,
 .ProseMirror th {
   position: relative;
+}
+
+/* Tablet: keep the desktop identity but reduce excessive visual volume. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .mobile-app-shell main {
+    overflow-x: clip;
+  }
+
+  .mobile-app-shell [class~="rounded-3xl"],
+  .mobile-app-shell [class*="rounded-[30px]"],
+  .mobile-app-shell [class*="rounded-[32px]"] {
+    border-radius: 1.5rem !important;
+  }
+
+  .mobile-app-shell [class~="p-8"] {
+    padding: 1.5rem !important;
+  }
+
+  .mobile-app-shell [class~="px-8"] {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+
+  .mobile-app-shell [class~="py-8"] {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+}
+
+/* Phone layout: deliberately app-like rather than a shrunken desktop page. */
+@media (max-width: 639px) {
+  :root {
+    --mobile-page-x: 0.75rem;
+    --mobile-nav-height: 4.4rem;
+  }
+
+  body {
+    background: #f3f7fa;
+  }
+
+  .mobile-app-shell {
+    min-height: 100dvh;
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-app-shell main {
+    min-height: auto !important;
+    overflow-x: clip;
+    padding-left: var(--mobile-page-x) !important;
+    padding-right: var(--mobile-page-x) !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+
+  .mobile-app-shell main > div[class*="max-w"] {
+    width: 100%;
+    max-width: none !important;
+  }
+
+  .mobile-app-shell header {
+    border-radius: 1.15rem !important;
+  }
+
+  .mobile-app-shell header [class~="h-10"][class~="w-10"] {
+    height: 2.25rem !important;
+    width: 2.25rem !important;
+    border-radius: 0.7rem !important;
+  }
+
+  .mobile-app-shell h1 {
+    font-size: clamp(1.65rem, 8vw, 2.1rem) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  .mobile-app-shell h2 {
+    font-size: 1.3rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .mobile-app-shell h3 {
+    font-size: 1.05rem !important;
+  }
+
+  .mobile-app-shell [class~="text-5xl"],
+  .mobile-app-shell [class~="text-4xl"] {
+    font-size: 2rem !important;
+    line-height: 1.08 !important;
+  }
+
+  .mobile-app-shell [class~="text-3xl"] {
+    font-size: 1.65rem !important;
+  }
+
+  .mobile-app-shell [class~="rounded-3xl"],
+  .mobile-app-shell [class*="rounded-[28px]"],
+  .mobile-app-shell [class*="rounded-[30px]"],
+  .mobile-app-shell [class*="rounded-[32px]"] {
+    border-radius: 1.25rem !important;
+  }
+
+  .mobile-app-shell [class~="rounded-2xl"] {
+    border-radius: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="p-8"],
+  .mobile-app-shell [class~="p-7"],
+  .mobile-app-shell [class~="p-6"] {
+    padding: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="p-5"] {
+    padding: 0.9rem !important;
+  }
+
+  .mobile-app-shell [class~="px-10"],
+  .mobile-app-shell [class~="px-8"],
+  .mobile-app-shell [class~="px-7"],
+  .mobile-app-shell [class~="px-6"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="py-10"],
+  .mobile-app-shell [class~="py-9"],
+  .mobile-app-shell [class~="py-8"],
+  .mobile-app-shell [class~="py-7"],
+  .mobile-app-shell [class~="py-6"] {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="mt-8"],
+  .mobile-app-shell [class~="mt-7"],
+  .mobile-app-shell [class~="mt-6"],
+  .mobile-app-shell [class~="mt-5"] {
+    margin-top: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="gap-8"],
+  .mobile-app-shell [class~="gap-7"],
+  .mobile-app-shell [class~="gap-6"],
+  .mobile-app-shell [class~="gap-5"] {
+    gap: 1rem !important;
+  }
+
+  .mobile-app-shell [class~="shadow-xl"],
+  .mobile-app-shell [class~="shadow-lg"] {
+    box-shadow: 0 10px 30px rgba(15, 35, 50, 0.08) !important;
+  }
+
+  .mobile-app-shell .grid[class*="grid-cols-"] {
+    min-width: 0;
+  }
+
+  .mobile-app-shell .flex[class*="justify-between"] {
+    min-width: 0;
+  }
+
+  .mobile-app-shell button,
+  .mobile-app-shell input,
+  .mobile-app-shell select,
+  .mobile-app-shell textarea {
+    font-size: 16px;
+  }
+
+  .mobile-app-shell button,
+  .mobile-app-shell a[class*="rounded"] {
+    touch-action: manipulation;
+  }
+
+  .mobile-app-shell input:not([type="checkbox"]):not([type="radio"]),
+  .mobile-app-shell select,
+  .mobile-app-shell textarea {
+    max-width: 100%;
+  }
+
+  .mobile-app-shell iframe,
+  .mobile-app-shell video {
+    max-width: 100%;
+    border-radius: 1rem !important;
+  }
+
+  .mobile-app-shell table {
+    font-size: 0.8rem;
+  }
+
+  .mobile-app-shell table th,
+  .mobile-app-shell table td {
+    padding: 0.55rem 0.65rem !important;
+  }
+
+  .mobile-app-shell [class*="overflow-x-auto"] {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ProseMirror,
+  .prose,
+  .content-html {
+    overflow-wrap: anywhere;
+  }
+
+  .ProseMirror table,
+  .prose table,
+  .content-html table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ProseMirror img,
+  .prose img,
+  .content-html img {
+    border-radius: 0.8rem;
+    margin: 0.75rem 0;
+  }
+
+  .student-telegram-fab {
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 0.6rem) !important;
+    right: 0.75rem !important;
+    height: 2.75rem;
+    width: 2.75rem;
+    justify-content: center;
+    padding: 0 !important;
+    border-radius: 999px !important;
+  }
+
+  .student-telegram-fab__label {
+    display: none;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    z-index: 80;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    padding: 0.35rem 0.45rem max(0.35rem, env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.94);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-nav__inner {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.15rem;
+    max-width: 34rem;
+    margin: 0 auto;
+  }
+
+  .mobile-bottom-nav__item {
+    display: flex;
+    min-width: 0;
+    min-height: 3.55rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    border-radius: 0.9rem;
+    color: #64748b;
+    text-decoration: none;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .mobile-bottom-nav__item.is-active {
+    background: #e8f7fb;
+    color: #0e7490;
+  }
+
+  .mobile-bottom-nav__icon {
+    display: grid;
+    place-items: center;
+    height: 1.35rem;
+  }
+
+  .mobile-bottom-nav__label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.64rem;
+    line-height: 1;
+    font-weight: 800;
+  }
 }

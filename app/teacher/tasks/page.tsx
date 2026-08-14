@@ -76,6 +76,11 @@ export default async function TeacherTasksPage() {
                           Сложность {task.difficulty}/5
                         </span>
                       ) : null}
+                      {task.skillTag ? (
+                        <span className="rounded-full bg-violet-50 px-2 py-1 text-xs font-medium text-violet-700">
+                          {task.skillTag}
+                        </span>
+                      ) : null}
                     </div>
 
                     <h2 className="mt-3 text-lg font-bold text-slate-950">

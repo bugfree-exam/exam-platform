@@ -3,6 +3,12 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  LEARNING_ERROR_CAUSES,
+  learningErrorCauseLabels,
+  type LearningErrorCauseValue,
+} from "@/lib/ai/errorCauses";
+
 type AnswerType =
   | "TEXT"
   | "NUMBER"
@@ -45,10 +51,18 @@ export function TrainerTaskSolver({
   taskId,
   egeNumber,
   answerType,
+  studyPlanContext,
 }: {
   taskId: string;
   egeNumber: number;
   answerType: AnswerType;
+  studyPlanContext?: {
+    planId: string;
+    actionIndex: number;
+    target: number;
+    completedBefore: number;
+    attemptKind: "PRACTICE" | "CONTROL";
+  };
 }) {
   const router = useRouter();
   const [answer, setAnswer] = useState("");
@@ -56,6 +70,9 @@ export function TrainerTaskSolver({
   const [nextTaskId, setNextTaskId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isChecking, setIsChecking] = useState(false);
+  const [errorCause, setErrorCause] = useState<LearningErrorCauseValue | "">("");
+  const [causeSaved, setCauseSaved] = useState(false);
+  const [isSavingCause, setIsSavingCause] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,7 +89,12 @@ export function TrainerTaskSolver({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ answer }),
+          body: JSON.stringify({
+            answer,
+            studyPlanId: studyPlanContext?.planId,
+            studyPlanActionIndex: studyPlanContext?.actionIndex,
+            studyPlanAttemptKind: studyPlanContext?.attemptKind,
+          }),
         }
       );
       const data = (await response.json().catch(() => ({}))) as
@@ -96,7 +118,36 @@ export function TrainerTaskSolver({
   function openNextTask() {
     if (!nextTaskId) return;
 
-    router.push(`/student/trainer/${egeNumber}?task=${nextTaskId}`);
+    const query = new URLSearchParams({ task: nextTaskId });
+    if (studyPlanContext) {
+      query.set("plan", studyPlanContext.planId);
+      query.set("action", String(studyPlanContext.actionIndex));
+      query.set("mode", "practice");
+    }
+    router.push(`/student/trainer/${egeNumber}?${query.toString()}`);
+  }
+
+  async function saveErrorCause() {
+    if (!result || !errorCause) return;
+    setIsSavingCause(true);
+    setMessage("");
+    try {
+      const response = await fetch(
+        `/api/student/trainer/attempts/${result.id}/error-cause`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ errorCause }),
+        }
+      );
+      const body = (await response.json().catch(() => ({}))) as { message?: string };
+      if (!response.ok) throw new Error(body.message ?? "Не удалось сохранить причину");
+      setCauseSaved(true);
+    } catch (saveError) {
+      setMessage(saveError instanceof Error ? saveError.message : "Не удалось сохранить причину");
+    } finally {
+      setIsSavingCause(false);
+    }
   }
 
   return (
@@ -108,7 +159,14 @@ export function TrainerTaskSolver({
         Введите ответ
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        Результат этой проверки сразу попадёт в раздел «Результаты и ошибки».
+        {studyPlanContext
+          ? studyPlanContext.attemptKind === "CONTROL"
+            ? "Это контрольная задача после паузы. Решите её самостоятельно — результат определит, освоен ли навык."
+            : `Практика засчитается в этап плана: ${Math.min(
+              studyPlanContext.completedBefore + (result ? 1 : 0),
+              studyPlanContext.target
+            )} из ${studyPlanContext.target}.`
+          : "Результат этой проверки сразу попадёт в раздел «Результаты и ошибки»."}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5">
@@ -184,7 +242,47 @@ export function TrainerTaskSolver({
             />
           ) : null}
 
-          {nextTaskId ? (
+          {!result.isCorrect ? (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-white/80 p-4">
+              <label className="text-sm font-bold text-slate-800">
+                Что помешало решить задачу?
+                <select
+                  value={errorCause}
+                  onChange={(event) => {
+                    setErrorCause(event.target.value as LearningErrorCauseValue | "");
+                    setCauseSaved(false);
+                  }}
+                  disabled={causeSaved}
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 font-normal"
+                >
+                  <option value="">Выберите причину</option>
+                  {LEARNING_ERROR_CAUSES.map((cause) => (
+                    <option key={cause} value={cause}>
+                      {learningErrorCauseLabels[cause]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={saveErrorCause}
+                disabled={!errorCause || causeSaved || isSavingCause}
+                className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {causeSaved ? "Причина сохранена" : isSavingCause ? "Сохраняем…" : "Сохранить в дневник ошибок"}
+              </button>
+            </div>
+          ) : null}
+
+          {studyPlanContext?.attemptKind === "CONTROL" ? (
+            <button
+              type="button"
+              onClick={() => router.push("/student/study-plan")}
+              className="mt-5 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+            >
+              Вернуться к плану →
+            </button>
+          ) : nextTaskId ? (
             <button
               type="button"
               onClick={openNextTask}

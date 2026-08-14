@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 
 import { StudentAccessCard } from "@/components/teacher/StudentAccessCard";
 import { StudentAccountActions } from "@/components/teacher/StudentAccountActions";
+import { StudentStudyPlanCard } from "@/components/teacher/StudentStudyPlanCard";
 import { formatAnswerForDisplay } from "@/lib/answer";
 import { requireTeacherPage } from "@/lib/access";
+import { toStudyPlanView } from "@/lib/ai/studyPlanView";
 import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
 
@@ -146,6 +148,28 @@ export default async function TeacherStudentPage({
           submittedAt: "desc",
         },
       },
+      studyPlans: {
+        take: 20,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          generation: {
+            select: {
+              provider: true,
+            },
+          },
+          practiceAttempts: {
+            select: {
+              studyPlanActionIndex: true,
+              studyPlanAttemptKind: true,
+              errorCause: true,
+              isCorrect: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -231,6 +255,8 @@ export default async function TeacherStudentPage({
 
   const pendingHomeworks =
     student.assignedHomeworks.length - completedHomeworks;
+
+  const studyPlans = student.studyPlans.map(toStudyPlanView);
 
   return (
     <main className="min-h-screen bg-slate-100/70 px-4 py-6 text-slate-950 sm:px-6 sm:py-8">
@@ -337,6 +363,11 @@ export default async function TeacherStudentPage({
             </div>
           </article>
         </section>
+
+        <StudentStudyPlanCard
+          studentId={student.id}
+          initialPlans={studyPlans}
+        />
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[390px_minmax(0,1fr)]">
           <StudentAccessCard

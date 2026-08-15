@@ -433,10 +433,61 @@ model AnnualCourse {
 
   modules             CourseModule[]
   scheduleItems       CourseScheduleItem[]
+  skillLevels         CourseSkillLevel[]
+  skillNodes          CourseSkillNode[]
   enrollments         StudentCourseEnrollment[]
   diagnosticTemplates DiagnosticTemplate[]
 
   @@index([status, startDate])
+}
+
+model CourseSkillLevel {
+  id          String   @id @default(cuid())
+  courseId    String
+  order       Int
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course AnnualCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  nodes  CourseSkillNode[]
+
+  @@unique([courseId, order])
+  @@index([courseId, order])
+}
+
+model CourseSkillNode {
+  id               String   @id @default(cuid())
+  courseId         String
+  levelId          String
+  order            Int
+  egeNumber        Int
+  title            String
+  description      String?
+  estimatedMinutes Int      @default(120)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  course            AnnualCourse           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  level             CourseSkillLevel        @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  prerequisiteLinks CourseSkillDependency[] @relation("SkillNodePrerequisites")
+  dependentLinks    CourseSkillDependency[] @relation("SkillNodeDependents")
+
+  @@unique([courseId, egeNumber])
+  @@unique([levelId, order])
+  @@index([courseId, levelId])
+}
+
+model CourseSkillDependency {
+  nodeId         String
+  prerequisiteId String
+
+  node         CourseSkillNode @relation("SkillNodePrerequisites", fields: [nodeId], references: [id], onDelete: Cascade)
+  prerequisite CourseSkillNode @relation("SkillNodeDependents", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@id([nodeId, prerequisiteId])
+  @@index([prerequisiteId])
 }
 
 model CourseModule {

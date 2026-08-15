@@ -11,7 +11,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
+import { createDefaultCourseSkillMap } from "@/lib/courseSkillMap";
 import {
+  hasSkillDependencyCycle,
   parseEgeNumbers,
   validateCourseDates,
   validateDiagnosticLevels,
@@ -52,6 +54,38 @@ const actionSchema = z.discriminatedUnion("action", [
     direction: z.enum(["up", "down"]),
   }),
   z.object({ action: z.literal("delete-module"), courseId: baseId, moduleId: baseId }),
+  z.object({
+    action: z.literal("save-skill-level"),
+    courseId: baseId,
+    levelId: baseId.optional(),
+    title: z.string().min(2).max(120),
+    description: optionalText,
+  }),
+  z.object({
+    action: z.literal("move-skill-level"),
+    courseId: baseId,
+    levelId: baseId,
+    direction: z.enum(["up", "down"]),
+  }),
+  z.object({ action: z.literal("delete-skill-level"), courseId: baseId, levelId: baseId }),
+  z.object({
+    action: z.literal("save-skill-node"),
+    courseId: baseId,
+    nodeId: baseId.optional(),
+    levelId: baseId,
+    egeNumber: z.number().int().min(1).max(27),
+    title: z.string().min(2).max(200),
+    description: optionalText,
+    estimatedMinutes: z.number().int().min(10).max(2_000),
+    prerequisiteNumbers: z.string().max(200),
+  }),
+  z.object({
+    action: z.literal("move-skill-node"),
+    courseId: baseId,
+    nodeId: baseId,
+    direction: z.enum(["up", "down"]),
+  }),
+  z.object({ action: z.literal("delete-skill-node"), courseId: baseId, nodeId: baseId }),
   z.object({
     action: z.literal("save-schedule-item"),
     courseId: baseId,
@@ -130,6 +164,30 @@ async function normalizeModuleOrder(courseId: string, orderedIds: string[]) {
   ]);
 }
 
+async function normalizeSkillLevelOrder(orderedIds: string[]) {
+  if (orderedIds.length === 0) return;
+  await prisma.$transaction([
+    ...orderedIds.map((id, index) =>
+      prisma.courseSkillLevel.update({ where: { id }, data: { order: -(index + 1) } }),
+    ),
+    ...orderedIds.map((id, index) =>
+      prisma.courseSkillLevel.update({ where: { id }, data: { order: index + 1 } }),
+    ),
+  ]);
+}
+
+async function normalizeSkillNodeOrder(orderedIds: string[]) {
+  if (orderedIds.length === 0) return;
+  await prisma.$transaction([
+    ...orderedIds.map((id, index) =>
+      prisma.courseSkillNode.update({ where: { id }, data: { order: -(index + 1) } }),
+    ),
+    ...orderedIds.map((id, index) =>
+      prisma.courseSkillNode.update({ where: { id }, data: { order: index + 1 } }),
+    ),
+  ]);
+}
+
 async function normalizeDiagnosticOrder(templateId: string, orderedIds: string[]) {
   await prisma.$transaction([
     ...orderedIds.map((id, index) =>
@@ -188,13 +246,17 @@ export async function POST(request: Request) {
               endDate: data.endDate,
             },
           })
-        : await prisma.annualCourse.create({
-            data: {
-              title: data.title.trim(),
-              description: cleanText(data.description),
-              startDate: data.startDate,
-              endDate: data.endDate,
-            },
+        : await prisma.$transaction(async (tx) => {
+            const created = await tx.annualCourse.create({
+              data: {
+                title: data.title.trim(),
+                description: cleanText(data.description),
+                startDate: data.startDate,
+                endDate: data.endDate,
+              },
+            });
+            await createDefaultCourseSkillMap(tx, created.id);
+            return created;
           });
       return NextResponse.json({ course });
     }
@@ -262,6 +324,202 @@ export async function POST(request: Request) {
         select: { id: true },
       });
       await normalizeModuleOrder(data.courseId, remaining.map((module) => module.id));
+      return NextResponse.json({ ok: true });
+    }
+
+    if (data.action === "save-skill-level") {
+      const level = data.levelId
+        ? await prisma.courseSkillLevel.update({
+            where: { id: data.levelId, courseId: data.courseId },
+            data: { title: data.title.trim(), description: cleanText(data.description) },
+          })
+        : await prisma.courseSkillLevel.create({
+            data: {
+              courseId: data.courseId,
+              order:
+                ((await prisma.courseSkillLevel.aggregate({
+                  where: { courseId: data.courseId },
+                  _max: { order: true },
+                }))._max.order ?? 0) + 1,
+              title: data.title.trim(),
+              description: cleanText(data.description),
+            },
+          });
+      return NextResponse.json({ level });
+    }
+
+    if (data.action === "move-skill-level") {
+      const levels = await prisma.courseSkillLevel.findMany({
+        where: { courseId: data.courseId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      const index = levels.findIndex((level) => level.id === data.levelId);
+      const target = data.direction === "up" ? index - 1 : index + 1;
+      if (index >= 0 && target >= 0 && target < levels.length) {
+        [levels[index], levels[target]] = [levels[target], levels[index]];
+        await normalizeSkillLevelOrder(levels.map((level) => level.id));
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (data.action === "delete-skill-level") {
+      const level = await prisma.courseSkillLevel.findFirst({
+        where: { id: data.levelId, courseId: data.courseId },
+      });
+      if (!level) throw new Error("Уровень карты не найден");
+      await prisma.courseSkillLevel.delete({ where: { id: level.id } });
+      const remaining = await prisma.courseSkillLevel.findMany({
+        where: { courseId: data.courseId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      await normalizeSkillLevelOrder(remaining.map((item) => item.id));
+      return NextResponse.json({ ok: true });
+    }
+
+    if (data.action === "save-skill-node") {
+      const level = await prisma.courseSkillLevel.findFirst({
+        where: { id: data.levelId, courseId: data.courseId },
+      });
+      if (!level) throw new Error("Выбранный уровень карты не найден");
+
+      const existingNode = data.nodeId
+        ? await prisma.courseSkillNode.findFirst({
+            where: { id: data.nodeId, courseId: data.courseId },
+          })
+        : null;
+      if (data.nodeId && !existingNode) throw new Error("Тема карты не найдена");
+
+      const duplicate = await prisma.courseSkillNode.findFirst({
+        where: {
+          courseId: data.courseId,
+          egeNumber: data.egeNumber,
+          ...(data.nodeId ? { id: { not: data.nodeId } } : {}),
+        },
+      });
+      if (duplicate) throw new Error(`Задание №${data.egeNumber} уже есть в карте`);
+
+      const prerequisiteNumbers = parseEgeNumbers(data.prerequisiteNumbers);
+      if (prerequisiteNumbers.includes(data.egeNumber)) {
+        throw new Error("Тема не может зависеть сама от себя");
+      }
+      const prerequisiteNodes = prerequisiteNumbers.length > 0
+        ? await prisma.courseSkillNode.findMany({
+            where: { courseId: data.courseId, egeNumber: { in: prerequisiteNumbers } },
+            select: { id: true, egeNumber: true },
+          })
+        : [];
+      if (prerequisiteNodes.length !== prerequisiteNumbers.length) {
+        throw new Error("Все зависимости должны ссылаться на задания, уже добавленные в эту карту");
+      }
+      if (data.nodeId && prerequisiteNodes.some((node) => node.id === data.nodeId)) {
+        throw new Error("Тема не может зависеть сама от себя");
+      }
+
+      const currentNodes = await prisma.courseSkillNode.findMany({
+        where: { courseId: data.courseId },
+        include: { prerequisiteLinks: true },
+      });
+      const numberById = new Map(currentNodes.map((node) => [node.id, node.egeNumber]));
+      if (data.nodeId) numberById.set(data.nodeId, data.egeNumber);
+      const dependencyGraph = currentNodes
+        .filter((node) => node.id !== data.nodeId)
+        .map((node) => ({
+          egeNumber: node.egeNumber,
+          prerequisiteNumbers: node.prerequisiteLinks.flatMap((link) => {
+            const number = numberById.get(link.prerequisiteId);
+            return number ? [number] : [];
+          }),
+        }));
+      dependencyGraph.push({ egeNumber: data.egeNumber, prerequisiteNumbers });
+      if (hasSkillDependencyCycle(dependencyGraph)) {
+        throw new Error("Такая зависимость создаёт цикл в карте. Уберите одну из встречных связей");
+      }
+
+      const node = await prisma.$transaction(async (tx) => {
+        const targetOrder = existingNode && existingNode.levelId === data.levelId
+          ? existingNode.order
+          : ((await tx.courseSkillNode.aggregate({
+              where: { levelId: data.levelId },
+              _max: { order: true },
+            }))._max.order ?? 0) + 1;
+        const saved = existingNode
+          ? await tx.courseSkillNode.update({
+              where: { id: existingNode.id },
+              data: {
+                levelId: data.levelId,
+                order: targetOrder,
+                egeNumber: data.egeNumber,
+                title: data.title.trim(),
+                description: cleanText(data.description),
+                estimatedMinutes: data.estimatedMinutes,
+              },
+            })
+          : await tx.courseSkillNode.create({
+              data: {
+                courseId: data.courseId,
+                levelId: data.levelId,
+                order: targetOrder,
+                egeNumber: data.egeNumber,
+                title: data.title.trim(),
+                description: cleanText(data.description),
+                estimatedMinutes: data.estimatedMinutes,
+              },
+            });
+        await tx.courseSkillDependency.deleteMany({ where: { nodeId: saved.id } });
+        if (prerequisiteNodes.length > 0) {
+          await tx.courseSkillDependency.createMany({
+            data: prerequisiteNodes.map((prerequisite) => ({
+              nodeId: saved.id,
+              prerequisiteId: prerequisite.id,
+            })),
+          });
+        }
+        return saved;
+      });
+      if (existingNode && existingNode.levelId !== data.levelId) {
+        const oldLevelNodes = await prisma.courseSkillNode.findMany({
+          where: { levelId: existingNode.levelId },
+          orderBy: { order: "asc" },
+          select: { id: true },
+        });
+        await normalizeSkillNodeOrder(oldLevelNodes.map((item) => item.id));
+      }
+      return NextResponse.json({ node });
+    }
+
+    if (data.action === "move-skill-node") {
+      const node = await prisma.courseSkillNode.findFirst({
+        where: { id: data.nodeId, courseId: data.courseId },
+      });
+      if (!node) throw new Error("Тема карты не найдена");
+      const nodes = await prisma.courseSkillNode.findMany({
+        where: { levelId: node.levelId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      const index = nodes.findIndex((item) => item.id === node.id);
+      const target = data.direction === "up" ? index - 1 : index + 1;
+      if (index >= 0 && target >= 0 && target < nodes.length) {
+        [nodes[index], nodes[target]] = [nodes[target], nodes[index]];
+        await normalizeSkillNodeOrder(nodes.map((item) => item.id));
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (data.action === "delete-skill-node") {
+      const node = await prisma.courseSkillNode.findFirst({
+        where: { id: data.nodeId, courseId: data.courseId },
+      });
+      if (!node) throw new Error("Тема карты не найдена");
+      await prisma.courseSkillNode.delete({ where: { id: node.id } });
+      const remaining = await prisma.courseSkillNode.findMany({
+        where: { levelId: node.levelId },
+        orderBy: { order: "asc" },
+        select: { id: true },
+      });
+      await normalizeSkillNodeOrder(remaining.map((item) => item.id));
       return NextResponse.json({ ok: true });
     }
 
@@ -363,7 +621,7 @@ export async function POST(request: Request) {
       const complete = await prisma.annualCourse.findUnique({
         where: { id: data.courseId },
         include: {
-          _count: { select: { modules: true, scheduleItems: true } },
+          _count: { select: { modules: true, scheduleItems: true, skillLevels: true, skillNodes: true } },
           diagnosticTemplates: {
             where: { status: DiagnosticTemplateStatus.PUBLISHED },
             orderBy: { version: "desc" },
@@ -373,6 +631,9 @@ export async function POST(request: Request) {
       });
       if (!complete || complete._count.modules === 0 || complete._count.scheduleItems === 0) {
         throw new Error("Перед публикацией добавьте хотя бы один модуль и один пункт расписания");
+      }
+      if (complete._count.skillLevels === 0 || complete._count.skillNodes === 0) {
+        throw new Error("Перед публикацией добавьте уровни и темы в карту навыков");
       }
       if (complete.diagnosticTemplates.length === 0) {
         throw new Error("Сначала опубликуйте общий входной контроль");

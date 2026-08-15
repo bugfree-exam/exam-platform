@@ -68,3 +68,28 @@ export function validateDiagnosticLevels(levels: DiagnosticTaskLevel[]) {
       unique.has("FOUNDATION") && (unique.has("ADVANCED") || unique.has("EXAM")),
   };
 }
+
+export function hasSkillDependencyCycle(
+  nodes: Array<{ egeNumber: number; prerequisiteNumbers: number[] }>,
+) {
+  const graph = new Map(
+    nodes.map((node) => [node.egeNumber, node.prerequisiteNumbers]),
+  );
+  const visiting = new Set<number>();
+  const visited = new Set<number>();
+
+  function visit(egeNumber: number): boolean {
+    if (visiting.has(egeNumber)) return true;
+    if (visited.has(egeNumber)) return false;
+
+    visiting.add(egeNumber);
+    for (const prerequisite of graph.get(egeNumber) ?? []) {
+      if (graph.has(prerequisite) && visit(prerequisite)) return true;
+    }
+    visiting.delete(egeNumber);
+    visited.add(egeNumber);
+    return false;
+  }
+
+  return nodes.some((node) => visit(node.egeNumber));
+}

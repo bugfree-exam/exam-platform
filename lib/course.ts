@@ -45,6 +45,41 @@ export async function getStudentCourseOverview(studentId: string) {
   });
 }
 
+export async function getStudentCourseSkillMap(studentId: string) {
+  const course = await getStudentCourse(studentId);
+  if (!course) return null;
+
+  return prisma.annualCourse.findUnique({
+    where: { id: course.id },
+    select: {
+      title: true,
+      skillLevels: {
+        orderBy: { order: "asc" },
+        select: {
+          id: true,
+          order: true,
+          title: true,
+          description: true,
+          nodes: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              order: true,
+              egeNumber: true,
+              title: true,
+              description: true,
+              estimatedMinutes: true,
+              prerequisiteLinks: {
+                select: { prerequisite: { select: { egeNumber: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 export async function getPublishedDiagnosticTemplate(studentId: string) {
   const enrollment = await prisma.studentCourseEnrollment.findFirst({
     where: {
@@ -89,6 +124,19 @@ export async function getTeacherCourseWorkspace() {
     include: {
       modules: { orderBy: { order: "asc" } },
       scheduleItems: { orderBy: [{ scheduledFor: "asc" }, { order: "asc" }] },
+      skillLevels: {
+        orderBy: { order: "asc" },
+        include: {
+          nodes: {
+            orderBy: { order: "asc" },
+            include: {
+              prerequisiteLinks: {
+                include: { prerequisite: { select: { egeNumber: true } } },
+              },
+            },
+          },
+        },
+      },
       diagnosticTemplates: {
         where: { status: { in: [DiagnosticTemplateStatus.PUBLISHED, DiagnosticTemplateStatus.DRAFT] } },
         orderBy: { version: "desc" },

@@ -3,11 +3,13 @@ import test from "node:test";
 
 import {
   getMoscowDayRange,
+  hasSkillDependencyCycle,
   parseEgeNumbers,
   validateCourseDates,
   validateDiagnosticLevels,
   validateModuleDates,
 } from "./coursePolicy";
+import { EGE_SKILL_MAP } from "./egeSkillMap";
 
 test("Today uses the exact Moscow calendar day", () => {
   const { start, end } = getMoscowDayRange(new Date("2026-08-14T21:30:00.000Z"));
@@ -39,4 +41,28 @@ test("course and module dates cannot silently escape the authored calendar", () 
     ),
     /внутри дат/,
   );
+});
+
+test("teacher-authored skill dependencies cannot contain a cycle", () => {
+  assert.equal(hasSkillDependencyCycle([
+    { egeNumber: 1, prerequisiteNumbers: [] },
+    { egeNumber: 7, prerequisiteNumbers: [1] },
+    { egeNumber: 11, prerequisiteNumbers: [1, 7] },
+  ]), false);
+  assert.equal(hasSkillDependencyCycle([
+    { egeNumber: 1, prerequisiteNumbers: [11] },
+    { egeNumber: 7, prerequisiteNumbers: [1] },
+    { egeNumber: 11, prerequisiteNumbers: [7] },
+  ]), true);
+});
+
+test("editable starter map covers every EGE number and has valid dependencies", () => {
+  assert.deepEqual(
+    EGE_SKILL_MAP.map((skill) => skill.egeNumber).sort((a, b) => a - b),
+    Array.from({ length: 27 }, (_, index) => index + 1),
+  );
+  assert.equal(hasSkillDependencyCycle(EGE_SKILL_MAP.map((skill) => ({
+    egeNumber: skill.egeNumber,
+    prerequisiteNumbers: skill.prerequisites,
+  }))), false);
 });

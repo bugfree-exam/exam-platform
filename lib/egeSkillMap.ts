@@ -2,6 +2,17 @@ import type { MasteryState } from "@/lib/mastery";
 
 export type SkillStage = "FOUNDATION" | "CORE" | "ADVANCED" | "EXAM";
 
+export const DEFAULT_SKILL_LEVELS: Array<{
+  key: SkillStage;
+  title: string;
+  description: string;
+}> = [
+  { key: "FOUNDATION", title: "База", description: "Базовые задания и темы, на которых строится дальнейшая подготовка." },
+  { key: "CORE", title: "Основной блок", description: "Основная часть программы ЕГЭ и ключевые рабочие навыки." },
+  { key: "ADVANCED", title: "Продвинутый блок", description: "Темы повышенной сложности и составные алгоритмы." },
+  { key: "EXAM", title: "Экзаменационная вершина", description: "Самые сложные задачи и итоговая сборка навыков." },
+];
+
 export type EgeSkillNode = {
   egeNumber: number;
   title: string;
@@ -46,7 +57,7 @@ export const EGE_SKILL_BY_NUMBER = new Map(
 );
 
 export function getSkillAvailability(
-  skill: EgeSkillNode,
+  skill: Pick<EgeSkillNode, "prerequisites">,
   masteryByNumber: Map<number, MasteryState>,
 ) {
   const missingPrerequisites = skill.prerequisites.filter((egeNumber) => {

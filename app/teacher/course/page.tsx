@@ -33,6 +33,22 @@ export default async function TeacherCoursePage() {
         endDate: course.endDate.toISOString(),
         status: course.status,
         enrolledStudents: course._count.enrollments,
+        skillLevels: course.skillLevels.map((level) => ({
+          id: level.id,
+          order: level.order,
+          title: level.title,
+          description: level.description,
+          nodes: level.nodes.map((node) => ({
+            id: node.id,
+            levelId: node.levelId,
+            order: node.order,
+            egeNumber: node.egeNumber,
+            title: node.title,
+            description: node.description,
+            estimatedMinutes: node.estimatedMinutes,
+            prerequisiteNumbers: node.prerequisiteLinks.map((link) => link.prerequisite.egeNumber),
+          })),
+        })),
         modules: course.modules.map((module) => ({
           id: module.id,
           order: module.order,

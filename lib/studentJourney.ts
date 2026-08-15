@@ -1,13 +1,16 @@
 import "server-only";
 
-import { getStudentCourseOverview } from "@/lib/course";
-import { EGE_SKILL_MAP, getSkillAvailability } from "@/lib/egeSkillMap";
+import { getStudentCourseOverview, getStudentCourseSkillMap } from "@/lib/course";
+import { getSkillAvailability } from "@/lib/egeSkillMap";
 import type { MasteryState } from "@/lib/mastery";
 import { prisma } from "@/lib/prisma";
 import { getStudentAnalytics } from "@/lib/studentAnalytics";
 
 export async function getStudentSkillMap(studentId: string) {
-  const analytics = await getStudentAnalytics(studentId, "all");
+  const [analytics, course] = await Promise.all([
+    getStudentAnalytics(studentId, "all"),
+    getStudentCourseSkillMap(studentId),
+  ]);
   const statsByNumber = new Map(
     analytics.skills.map((skill) => [skill.egeNumber, skill]),
   );
@@ -15,12 +18,32 @@ export async function getStudentSkillMap(studentId: string) {
     analytics.skills.map((skill) => [skill.egeNumber, skill.status]),
   );
 
-  return EGE_SKILL_MAP.map((node) => ({
-    ...node,
-    mastery: masteryByNumber.get(node.egeNumber) ?? "INSUFFICIENT_DATA",
-    stats: statsByNumber.get(node.egeNumber) ?? null,
-    ...getSkillAvailability(node, masteryByNumber),
-  }));
+  return {
+    courseTitle: course?.title ?? null,
+    levels: (course?.skillLevels ?? []).map((level) => ({
+      id: level.id,
+      order: level.order,
+      title: level.title,
+      description: level.description,
+      skills: level.nodes.map((node) => {
+        const prerequisites = node.prerequisiteLinks.map(
+          (link) => link.prerequisite.egeNumber,
+        );
+        return {
+          id: node.id,
+          order: node.order,
+          egeNumber: node.egeNumber,
+          title: node.title,
+          description: node.description,
+          estimatedMinutes: node.estimatedMinutes,
+          prerequisites,
+          mastery: masteryByNumber.get(node.egeNumber) ?? "INSUFFICIENT_DATA",
+          stats: statsByNumber.get(node.egeNumber) ?? null,
+          ...getSkillAvailability({ prerequisites }, masteryByNumber),
+        };
+      }),
+    })),
+  };
 }
 
 export async function getStudentJourneyOverview(studentId: string) {

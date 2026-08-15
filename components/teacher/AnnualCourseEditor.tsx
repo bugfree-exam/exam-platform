@@ -127,6 +127,7 @@ export function AnnualCourseEditor({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [courseSettingsEditing, setCourseSettingsEditing] = useState(course === null);
   const [editingModule, setEditingModule] = useState<ModuleView | null>(null);
   const [editingItem, setEditingItem] = useState<ScheduleView | null>(null);
   const activeDiagnostic = course?.diagnostics.find((item) => item.status === "DRAFT") ?? course?.diagnostics[0] ?? null;
@@ -155,7 +156,7 @@ export function AnnualCourseEditor({
   async function saveCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await send({
+    const saved = await send({
       action: "save-course",
       courseId: course?.id,
       title: form.get("title"),
@@ -163,12 +164,14 @@ export function AnnualCourseEditor({
       startDate: moscowDate(String(form.get("startDate"))),
       endDate: moscowEndDate(String(form.get("endDate"))),
     });
+    if (saved) setCourseSettingsEditing(false);
   }
 
   async function saveModule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!course) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const saved = await send({
       action: "save-module",
       courseId: course.id,
@@ -181,14 +184,15 @@ export function AnnualCourseEditor({
     });
     if (saved) {
       setEditingModule(null);
-      event.currentTarget.reset();
+      formElement.reset();
     }
   }
 
   async function saveScheduleItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!course) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const saved = await send({
       action: "save-schedule-item",
       courseId: course.id,
@@ -204,7 +208,7 @@ export function AnnualCourseEditor({
     });
     if (saved) {
       setEditingItem(null);
-      event.currentTarget.reset();
+      formElement.reset();
     }
   }
 
@@ -225,7 +229,8 @@ export function AnnualCourseEditor({
   async function addDiagnosticItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!course || !activeDiagnostic || activeDiagnostic.status !== "DRAFT") return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const saved = await send({
       action: "add-diagnostic-item",
       courseId: course.id,
@@ -234,7 +239,7 @@ export function AnnualCourseEditor({
       level: form.get("level"),
       points: Number(form.get("points")),
     });
-    if (saved) event.currentTarget.reset();
+    if (saved) formElement.reset();
   }
 
   return (
@@ -244,15 +249,15 @@ export function AnnualCourseEditor({
       <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div><div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">course.settings</div><h2 className="mt-2 text-2xl font-black">Годовой курс</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Эта программа едина для всех учеников. Цель и диагностика помогают анализировать прогресс, но не меняют заданную вами последовательность.</p></div>
-          {course ? <span className={`rounded-full px-3 py-1.5 text-xs font-black ${course.status === "PUBLISHED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{course.status === "PUBLISHED" ? `Опубликован · ${course.enrolledStudents} учеников` : "Черновик"}</span> : null}
+          {course ? <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-3 py-1.5 text-xs font-black ${course.status === "PUBLISHED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{course.status === "PUBLISHED" ? `Опубликован · ${course.enrolledStudents} учеников` : "Черновик"}</span>{!courseSettingsEditing ? <button type="button" onClick={() => setCourseSettingsEditing(true)} className="rounded-xl bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-800">Редактировать годовой курс</button> : null}</div> : null}
         </div>
-        <form onSubmit={saveCourse} className="mt-6 grid gap-4 md:grid-cols-2">
+        {course && !courseSettingsEditing ? <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5"><h3 className="text-lg font-black text-slate-950">{course.title}</h3>{course.description ? <p className="mt-2 text-sm leading-6 text-slate-600">{course.description}</p> : null}<p className="mt-3 text-xs font-bold text-slate-500">Период: {dateInput(course.startDate)} — {dateInput(course.endDate)}</p>{course.status === "PUBLISHED" ? <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">Курс можно корректировать без повторной публикации: параметры, порядок модулей и будущие пункты расписания применятся для учеников сразу. Уже прошедшие пункты сохраняются в истории.</p> : null}</div> : <form onSubmit={saveCourse} className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="md:col-span-2"><span className="text-xs font-black text-slate-600">Название</span><input name="title" required minLength={3} defaultValue={course?.title ?? "Годовой курс ЕГЭ по информатике"} className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-3" /></label>
           <label className="md:col-span-2"><span className="text-xs font-black text-slate-600">Описание</span><textarea name="description" defaultValue={course?.description ?? ""} rows={2} className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-3" /></label>
           <label><span className="text-xs font-black text-slate-600">Начало курса</span><input name="startDate" type="date" required defaultValue={course ? dateInput(course.startDate) : "2026-09-01"} className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-3" /></label>
           <label><span className="text-xs font-black text-slate-600">Окончание курса</span><input name="endDate" type="date" required defaultValue={course ? dateInput(course.endDate) : "2027-06-19"} className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-3" /></label>
-          <button disabled={pending} className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-50 md:col-span-2">{course ? "Сохранить параметры курса" : "Создать курс"}</button>
-        </form>
+          <div className="flex gap-2 md:col-span-2"><button disabled={pending} className="flex-1 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-50">{course ? "Сохранить изменения курса" : "Создать курс"}</button>{course ? <button type="button" onClick={() => setCourseSettingsEditing(false)} className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-700">Отмена</button> : null}</div>
+        </form>}
       </section>
 
       {course ? <>
@@ -308,7 +313,7 @@ export function AnnualCourseEditor({
           {activeDiagnostic?.status === "DRAFT" && activeDiagnostic.items.length >= 3 ? <button type="button" disabled={pending} onClick={() => send({ action: "publish-diagnostic", courseId: course.id, templateId: activeDiagnostic.id })} className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-3.5 text-sm font-black text-white">Опубликовать неизменяемый входной контроль</button> : null}
         </section>
 
-        <section className="rounded-[28px] border border-cyan-200 bg-[#092535] p-6 text-white shadow-lg sm:p-8"><h2 className="text-2xl font-black">Публикация для учеников</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">После публикации этот курс станет единым маршрутом и будет назначен всем активным ученикам. Будущие пункты можно корректировать; прошедшие сохраняются в истории.</p><button type="button" disabled={pending || course.status === "PUBLISHED"} onClick={() => send({ action: "publish-course", courseId: course.id })} className="mt-5 rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">{course.status === "PUBLISHED" ? "Курс уже опубликован" : "Опубликовать курс и назначить всем"}</button></section>
+        <section className="rounded-[28px] border border-cyan-200 bg-[#092535] p-6 text-white shadow-lg sm:p-8"><h2 className="text-2xl font-black">Публикация для учеников</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">После публикации этот курс станет единым маршрутом и будет назначен всем активным ученикам. Будущие пункты можно корректировать; прошедшие сохраняются в истории.</p>{course.status === "PUBLISHED" ? <div className="mt-5 rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm font-bold leading-6 text-emerald-100">Курс опубликован и остаётся редактируемым. Сохраняйте небольшие правки в параметрах, модулях и будущем расписании — повторно публиковать курс не нужно.</div> : <button type="button" disabled={pending} onClick={() => send({ action: "publish-course", courseId: course.id })} className="mt-5 rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-50">Опубликовать курс и назначить всем</button>}</section>
       </> : null}
     </div>
   );

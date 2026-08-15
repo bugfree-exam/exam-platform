@@ -1,10 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export function CalendarReplanForm({ weeklyMinutes }: { weeklyMinutes: number }) {
-  const router = useRouter();
   const [minutes, setMinutes] = useState(weeklyMinutes);
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
@@ -21,15 +19,15 @@ export function CalendarReplanForm({ weeklyMinutes }: { weeklyMinutes: number })
         body: JSON.stringify({ weeklyMinutes: minutes, reason }),
       });
       const body = (await response.json().catch(() => ({}))) as { message?: string };
-      if (!response.ok) throw new Error(body.message ?? "Не удалось перестроить маршрут");
+      if (!response.ok) throw new Error(body.message ?? "Не удалось отправить запрос");
       setReason("");
-      router.refresh();
+      setMessage("Запрос отправлен. Преподаватель увидит новый ресурс и причину изменения.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось перестроить маршрут");
+      setMessage(error instanceof Error ? error.message : "Не удалось отправить запрос");
     } finally {
       setPending(false);
     }
   }
 
-  return <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-[180px_1fr_auto]"><select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))} className="rounded-xl border border-slate-200 px-3 py-2.5">{[120, 180, 240, 300, 360, 480, 600, 720].map((value) => <option key={value} value={value}>{value / 60} ч/нед.</option>)}</select><input required minLength={3} maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Почему изменился график?" className="rounded-xl border border-slate-200 px-3 py-2.5" /><button disabled={pending} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white">{pending ? "Строим…" : "Перепланировать"}</button>{message ? <p className="text-sm text-rose-700 sm:col-span-3">{message}</p> : null}</form>;
+  return <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-[180px_1fr_auto]"><select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))} className="rounded-xl border border-slate-200 px-3 py-2.5">{[120, 180, 240, 300, 360, 480, 600, 720].map((value) => <option key={value} value={value}>{value / 60} ч/нед.</option>)}</select><input required minLength={3} maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Почему изменился график?" className="rounded-xl border border-slate-200 px-3 py-2.5" /><button disabled={pending} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white">{pending ? "Отправляем…" : "Сообщить учителю"}</button>{message ? <p className="text-sm text-cyan-800 sm:col-span-3">{message}</p> : null}</form>;
 }

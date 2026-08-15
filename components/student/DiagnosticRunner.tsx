@@ -72,7 +72,7 @@ export function DiagnosticRunner({ diagnosticId, tasks }: { diagnosticId: string
           <label className="mt-5 block text-sm font-black">Ваш ответ<input value={answers[task.id] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [task.id]: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-mono font-normal" placeholder={task.answerType.includes("PAIR") ? "Каждая пара с новой строки" : "Введите ответ"} /></label>
         </article>
       ))}
-      <div className="sticky bottom-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur sm:bottom-4"><p className="mb-3 text-xs leading-5 text-slate-500">Можно оставить незнакомое задание пустым — это честнее случайной догадки. Решения появятся позже в обучающем маршруте, а не во время диагностики.</p>{message ? <p className="mb-3 text-sm text-rose-700">{message}</p> : null}<button disabled={pending} className="w-full rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{pending ? "Строим маршрут…" : "Завершить и построить маршрут"}</button></div>
+      <div className="sticky bottom-20 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur sm:bottom-4"><p className="mb-3 text-xs leading-5 text-slate-500">Можно оставить незнакомое задание пустым — это честнее случайной догадки. Результат зафиксирует точку старта, но не изменит порядок авторского курса.</p>{message ? <p className="mb-3 text-sm text-rose-700">{message}</p> : null}<button disabled={pending} className="w-full rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-black text-white disabled:opacity-50">{pending ? "Сохраняем результат…" : "Завершить входной контроль"}</button></div>
     </form>
   );
 }

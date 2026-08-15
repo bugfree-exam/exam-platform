@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { generateStudentRoadmap } from "@/lib/studentJourney";
 
 export const runtime = "nodejs";
 
@@ -37,21 +36,15 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  const roadmap = await generateStudentRoadmap(auth.user.id);
-  await prisma.studentQueueDecision.upsert({
-    where: {
-      studentId_itemKey: {
-        studentId: auth.user.id,
-        itemKey: `replan-${roadmap.id}`,
-      },
-    },
-    create: {
+  const adjustmentRequest = await prisma.studentQueueDecision.create({
+    data: {
       studentId: auth.user.id,
-      itemKey: `replan-${roadmap.id}`,
-      note: parsed.data.reason.trim(),
+      itemKey: `course-adjustment-${Date.now()}`,
+      state: "HELP_REQUESTED",
+      helpRequestedAt: new Date(),
+      note: `Изменился доступный ресурс: ${parsed.data.weeklyMinutes} мин/нед. ${parsed.data.reason.trim()}`,
     },
-    update: { note: parsed.data.reason.trim() },
   });
 
-  return NextResponse.json({ roadmapId: roadmap.id });
+  return NextResponse.json({ requestId: adjustmentRequest.id });
 }

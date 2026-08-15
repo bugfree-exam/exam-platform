@@ -18,8 +18,8 @@ export default async function StudentStartPage() {
         <Link href="/student" className="text-sm font-bold text-cyan-700">← В кабинет</Link>
         <header className="mt-4 overflow-hidden rounded-[32px] bg-[#092535] p-7 text-white sm:p-10">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300">start.profile</div>
-          <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Соберём ваш маршрут до экзамена</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Никаких обещаний «заниматься каждый день». Укажите реальную цель, срок и время — платформа построит выполнимый путь и сможет корректно его перепланировать.</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Зафиксируем вашу цель и ресурс</h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Годовой маршрут задаёт преподаватель и он един для курса. Эти ответы нужны, чтобы честно оценивать ваш прогресс, замечать перегрузку и вовремя предлагать восстановление.</p>
         </header>
         <PreparationOnboardingForm
           initial={profile ? {

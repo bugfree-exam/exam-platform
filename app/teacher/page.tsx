@@ -126,6 +126,7 @@ export default async function TeacherPage() {
     activeAssignments,
     submittedAttempts,
     upcomingWebinarsCount,
+    activeCoursesCount,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["studentStatus"],
@@ -288,6 +289,9 @@ export default async function TeacherPage() {
         scheduledAt: { gte: now },
       },
     }),
+    prisma.annualCourse.count({
+      where: { status: { in: ["DRAFT", "PUBLISHED"] } },
+    }),
   ]);
 
   const studentCountMap = new Map(
@@ -362,6 +366,14 @@ export default async function TeacherPage() {
   const weeklyAveragePercent = Math.round(weeklyAttempts._avg.percent ?? 0);
 
   const navigationCards = [
+    {
+      href: "/teacher/course",
+      code: "00",
+      title: "Годовой курс",
+      description: "Общий маршрут, порядок модулей, календарь «Сегодня» и единая диагностика.",
+      value: activeCoursesCount,
+      unit: activeCoursesCount === 1 ? "курс" : "курсов",
+    },
     {
       href: "/teacher/students",
       code: "01",

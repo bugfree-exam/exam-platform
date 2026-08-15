@@ -87,7 +87,7 @@ export function PreparationOnboardingForm({
       <div className="grid gap-5 md:grid-cols-2">
         <label className="rounded-2xl border border-slate-200 bg-white p-5">
           <span className="text-sm font-black">Цель на экзамене</span>
-          <span className="mt-1 block text-xs leading-5 text-slate-500">Амбициозная, но честная цель помогает рассчитать объём маршрута.</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">Поможет оценивать, успеваете ли вы к нужному результату по общему курсу.</span>
           <div className="mt-4 flex items-center gap-4">
             <input type="range" min="40" max="100" step="5" value={targetScore} onChange={(event) => setTargetScore(Number(event.target.value))} className="w-full accent-cyan-700" />
             <strong className="w-16 text-right text-2xl">{targetScore}+</strong>
@@ -96,7 +96,7 @@ export function PreparationOnboardingForm({
 
         <label className="rounded-2xl border border-slate-200 bg-white p-5">
           <span className="text-sm font-black">Дата экзамена</span>
-          <span className="mt-1 block text-xs leading-5 text-slate-500">Маршрут оставит резерв на варианты и повторение.</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">Используется для аналитики готовности и рисков.</span>
           <input type="date" required value={examDate} onChange={(event) => setExamDate(event.target.value)} className="mt-4 w-full rounded-xl border border-slate-200 px-3 py-2.5" />
         </label>
 
@@ -110,7 +110,7 @@ export function PreparationOnboardingForm({
 
         <label className="rounded-2xl border border-slate-200 bg-white p-5">
           <span className="text-sm font-black">Удобная длина занятия</span>
-          <span className="mt-1 block text-xs leading-5 text-slate-500">Очередь «Сегодня» будет собираться небольшими выполнимыми блоками.</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">Поможет учителю подобрать восстановление, если нагрузка станет слишком большой.</span>
           <select value={sessionMinutes} onChange={(event) => setSessionMinutes(Number(event.target.value))} className="mt-4 w-full rounded-xl border border-slate-200 px-3 py-2.5">
             {[30, 45, 60, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} минут</option>)}
           </select>

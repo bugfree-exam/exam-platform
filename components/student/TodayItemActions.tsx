@@ -10,12 +10,16 @@ export function TodayItemActions({
   checkHref,
   action,
   external = false,
+  allowSnooze = true,
+  helpNote,
 }: {
   itemKey: string;
   href: string;
   checkHref?: string;
   action: string;
   external?: boolean;
+  allowSnooze?: boolean;
+  helpNote?: string;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<"tomorrow" | "help" | null>(null);
@@ -35,7 +39,7 @@ export function TodayItemActions({
           itemKey,
           state: kind === "help" ? "HELP_REQUESTED" : "SNOOZED",
           scheduledFor: kind === "tomorrow" ? tomorrow.toISOString() : null,
-          note: kind === "help" ? "Ученик запросил помощь из очереди «Сегодня»" : null,
+          note: kind === "help" ? (helpNote || "Ученик запросил помощь из очереди «Сегодня»") : null,
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { message?: string };
@@ -53,7 +57,7 @@ export function TodayItemActions({
     <div className="mt-4">
       <div className="flex flex-wrap gap-2">
         <Link href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white">{action}</Link>
-        <button type="button" onClick={() => decide("tomorrow")} disabled={Boolean(pending)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600">{pending === "tomorrow" ? "Переносим…" : "На завтра"}</button>
+        {allowSnooze ? <button type="button" onClick={() => decide("tomorrow")} disabled={Boolean(pending)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600">{pending === "tomorrow" ? "Переносим…" : "На завтра"}</button> : null}
         {checkHref ? <Link href={checkHref} className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-xs font-bold text-cyan-800">Уже умею — проверить</Link> : null}
         <button type="button" onClick={() => decide("help")} disabled={Boolean(pending)} className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-bold text-violet-800">{pending === "help" ? "Отправляем…" : "Нужна помощь"}</button>
       </div>

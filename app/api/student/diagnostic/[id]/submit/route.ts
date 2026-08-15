@@ -6,7 +6,6 @@ import { requireApiRole } from "@/lib/access";
 import { checkAnswer } from "@/lib/checkAnswer";
 import { getKnownTaskIds } from "@/lib/masteryEvidence";
 import { prisma } from "@/lib/prisma";
-import { generateStudentRoadmap } from "@/lib/studentJourney";
 
 export const runtime = "nodejs";
 
@@ -56,7 +55,11 @@ export async function POST(request: Request, context: RouteContext) {
     });
     return { item, rawAnswer, result };
   });
-  const score = checked.filter((item) => item.result.isCorrect).length;
+  const score = checked.reduce(
+    (total, item) => total + (item.result.isCorrect ? item.item.points : 0),
+    0,
+  );
+  const maxScore = diagnostic.items.reduce((total, item) => total + item.points, 0);
   const completedAt = new Date();
 
   await prisma.$transaction([
@@ -79,19 +82,17 @@ export async function POST(request: Request, context: RouteContext) {
       data: {
         status: "COMPLETED",
         score,
-        maxScore: diagnostic.items.length,
+        maxScore,
         completedAt,
       },
     }),
   ]);
 
-  await generateStudentRoadmap(auth.user.id, diagnostic.id);
-
   return NextResponse.json({
     diagnostic: {
       id: diagnostic.id,
       score,
-      maxScore: diagnostic.items.length,
+      maxScore,
       completedAt,
     },
   });

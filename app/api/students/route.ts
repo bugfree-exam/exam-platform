@@ -105,6 +105,29 @@ export async function POST(request: Request) {
       },
     });
 
+    const publishedCourse = await prisma.annualCourse.findFirst({
+      where: { status: "PUBLISHED" },
+      orderBy: [{ startDate: "desc" }, { publishedAt: "desc" }],
+      select: {
+        id: true,
+        diagnosticTemplates: {
+          where: { status: "PUBLISHED" },
+          orderBy: { version: "desc" },
+          take: 1,
+          select: { id: true },
+        },
+      },
+    });
+    if (publishedCourse) {
+      await prisma.studentCourseEnrollment.create({
+        data: {
+          courseId: publishedCourse.id,
+          studentId: student.id,
+          diagnosticTemplateId: publishedCourse.diagnosticTemplates[0]?.id,
+        },
+      });
+    }
+
     return NextResponse.json({ student }, { status: 201 });
   } catch (error) {
     console.error("[STUDENTS_POST]", error);

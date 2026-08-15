@@ -4,7 +4,6 @@ import { z } from "zod";
 
 import { requireApiRole } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
-import { generateStudentRoadmap } from "@/lib/studentJourney";
 
 export const runtime = "nodejs";
 
@@ -66,15 +65,6 @@ export async function PUT(request: Request) {
     },
     select: { studentId: true, completedAt: true },
   });
-
-  const completedDiagnostic = await prisma.studentDiagnosticAttempt.findFirst({
-    where: { studentId: auth.user.id, status: "COMPLETED" },
-    orderBy: { completedAt: "desc" },
-    select: { id: true },
-  });
-  if (completedDiagnostic) {
-    await generateStudentRoadmap(auth.user.id, completedDiagnostic.id);
-  }
 
   return NextResponse.json({ profile });
 }

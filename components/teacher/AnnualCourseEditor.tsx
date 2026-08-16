@@ -2,12 +2,14 @@
 
 import type { CourseItemType, DiagnosticTaskLevel } from "@prisma/client";
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
   CourseSkillMapEditor,
   type CourseSkillLevelView,
 } from "@/components/teacher/CourseSkillMapEditor";
+import { MANUAL_COURSE_ITEM_TYPES } from "@/lib/coursePolicy";
 
 type ModuleView = {
   id: string;
@@ -284,12 +286,12 @@ export function AnnualCourseEditor({
         <CourseSkillMapEditor courseId={course.id} levels={course.skillLevels} />
 
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">course.calendar</div><h2 className="mt-2 text-2xl font-black">Что появится в «Сегодня»</h2><p className="mt-2 text-sm leading-6 text-slate-500">Только пункты, добавленные сюда на конкретную дату. Долги, AI и слабые навыки не попадут в основную очередь самовольно.</p>
-          <div className="mt-5 space-y-3">{course.scheduleItems.map((item) => <div key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center"><div className="w-28 shrink-0 text-xs font-black text-cyan-700">{formatDateTime(item.scheduledFor)} МСК</div><div className="min-w-0 flex-1"><div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{itemLabels[item.type]} · ~{item.estimatedMinutes} мин.</div><h3 className="mt-1 font-black">{item.title}</h3></div><div className="flex gap-2"><button type="button" onClick={() => setEditingItem(item)} className="rounded-lg bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800">Изменить</button><button type="button" onClick={() => window.confirm("Удалить будущий пункт расписания?") && send({ action: "delete-schedule-item", courseId: course.id, itemId: item.id })} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-black text-rose-700">Удалить</button></div></div>)}</div>
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">course.calendar</div><h2 className="mt-2 text-2xl font-black">Учебные действия по датам</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Здесь планируются теория, практика, ДЗ, варианты и контроль. Вебинар достаточно создать один раз в отдельном расписании — после публикации он автоматически появится у учеников в «Сегодня».</p></div><Link href="/teacher/webinar-schedule" className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-black text-cyan-800">Расписание вебинаров →</Link></div>
+          <div className="mt-5 space-y-3">{course.scheduleItems.map((item) => <div key={item.id} className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center ${item.type === "WEBINAR" ? "border-amber-200 bg-amber-50" : "border-slate-200"}`}><div className="w-28 shrink-0 text-xs font-black text-cyan-700">{formatDateTime(item.scheduledFor)} МСК</div><div className="min-w-0 flex-1"><div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{itemLabels[item.type]} · ~{item.estimatedMinutes} мин.</div><h3 className="mt-1 font-black">{item.title}</h3>{item.type === "WEBINAR" ? <p className="mt-1 text-xs font-bold text-amber-800">Старая ручная запись: ученикам не показывается. Удалите её и используйте расписание вебинаров.</p> : null}</div><div className="flex gap-2">{item.type !== "WEBINAR" ? <button type="button" onClick={() => setEditingItem(item)} className="rounded-lg bg-cyan-50 px-3 py-2 text-xs font-black text-cyan-800">Изменить</button> : null}<button type="button" onClick={() => window.confirm("Удалить будущий пункт расписания?") && send({ action: "delete-schedule-item", courseId: course.id, itemId: item.id })} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-black text-rose-700">Удалить</button></div></div>)}</div>
           <form key={editingItem?.id ?? "new-item"} onSubmit={saveScheduleItem} className="mt-6 grid gap-3 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/40 p-4 md:grid-cols-2">
             <h3 className="font-black md:col-span-2">{editingItem ? "Изменить пункт расписания" : "Добавить пункт расписания"}</h3>
             <select name="moduleId" defaultValue={editingItem?.moduleId ?? ""} className="rounded-xl border border-slate-200 px-3 py-2.5"><option value="">Без привязки к модулю</option>{course.modules.map((module) => <option key={module.id} value={module.id}>{module.order}. {module.title}</option>)}</select>
-            <select name="type" defaultValue={editingItem?.type ?? "PRACTICE"} className="rounded-xl border border-slate-200 px-3 py-2.5">{Object.entries(itemLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+            <select name="type" defaultValue={editingItem?.type ?? "PRACTICE"} className="rounded-xl border border-slate-200 px-3 py-2.5">{MANUAL_COURSE_ITEM_TYPES.map((value) => <option key={value} value={value}>{itemLabels[value]}</option>)}</select>
             <input name="title" required placeholder="Название действия для ученика" defaultValue={editingItem?.title ?? ""} className="rounded-xl border border-slate-200 px-3 py-2.5 md:col-span-2" />
             <textarea name="description" placeholder="Короткое пояснение" defaultValue={editingItem?.description ?? ""} className="rounded-xl border border-slate-200 px-3 py-2.5 md:col-span-2" />
             <input name="scheduledFor" type="datetime-local" required defaultValue={editingItem ? dateTimeInput(editingItem.scheduledFor) : `${dateInput(course.startDate)}T18:00`} className="rounded-xl border border-slate-200 px-3 py-2.5" />

@@ -14,6 +14,7 @@ import { requireApiRole } from "@/lib/access";
 import { createDefaultCourseSkillMap } from "@/lib/courseSkillMap";
 import {
   hasSkillDependencyCycle,
+  isManualCourseItemType,
   parseEgeNumbers,
   validateCourseDates,
   validateDiagnosticLevels,
@@ -524,6 +525,9 @@ export async function POST(request: Request) {
     }
 
     if (data.action === "save-schedule-item") {
+      if (!isManualCourseItemType(data.type)) {
+        throw new Error("Вебинар добавляется только через отдельное расписание вебинаров");
+      }
       if (data.scheduledFor < course.startDate || data.scheduledFor > course.endDate) {
         throw new Error("Пункт расписания должен находиться внутри дат курса");
       }

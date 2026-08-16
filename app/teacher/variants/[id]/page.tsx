@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { VariantPerformanceChart } from "@/components/variants/VariantPerformanceChart";
 import { VariantStatusButton } from "@/components/variants/VariantStatusButton";
 import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
@@ -58,6 +59,7 @@ export default async function TeacherVariantPage({
           },
           answers: {
             select: {
+              taskId: true,
               isCorrect: true,
             },
           },
@@ -80,6 +82,24 @@ export default async function TeacherVariantPage({
             0
           ) / variant.attempts.length
         );
+
+  const taskPerformance = variant.tasks.map((variantTask) => {
+    const correctAnswers = variant.attempts.reduce(
+      (sum, attempt) =>
+        sum + (attempt.answers.some((answer) => answer.taskId === variantTask.taskId && answer.isCorrect) ? 1 : 0),
+      0,
+    );
+
+    return {
+      order: variantTask.order,
+      egeNumber: variantTask.taskRevision.egeNumber,
+      title: variantTask.taskRevision.title,
+      correctAnswers,
+      percent: variant.attempts.length === 0
+        ? 0
+        : Math.round((correctAnswers / variant.attempts.length) * 100),
+    };
+  });
 
   return (
     <main className="min-h-screen bg-[#f4f7f8] px-4 py-6 text-slate-950 sm:px-6 sm:py-8">
@@ -152,6 +172,18 @@ export default async function TeacherVariantPage({
             </div>
           </div>
         </header>
+
+        <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-700">group.task.performance</div>
+              <h2 className="mt-2 text-2xl font-black tracking-tight">Средняя выполняемость заданий</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Общая картина по всем отправленным попыткам помогает быстро увидеть задания для группового разбора.</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{variant.attempts.length} попыток</span>
+          </div>
+          <VariantPerformanceChart points={taskPerformance} totalAttempts={variant.attempts.length} />
+        </section>
 
         <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div>

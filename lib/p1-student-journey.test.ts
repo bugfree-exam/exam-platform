@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getMoscowDayRange,
   hasSkillDependencyCycle,
+  isManualCourseItemType,
   parseEgeNumbers,
   validateCourseDates,
   validateDiagnosticLevels,
@@ -16,6 +17,12 @@ test("Today uses the exact Moscow calendar day", () => {
   const { start, end } = getMoscowDayRange(new Date("2026-08-14T21:30:00.000Z"));
   assert.equal(start.toISOString(), "2026-08-14T21:00:00.000Z");
   assert.equal(end.toISOString(), "2026-08-15T21:00:00.000Z");
+});
+
+test("webinars have one source and cannot be added manually to the course calendar", () => {
+  assert.equal(isManualCourseItemType("WEBINAR"), false);
+  assert.equal(isManualCourseItemType("PRACTICE"), true);
+  assert.equal(isManualCourseItemType("HOMEWORK"), true);
 });
 
 test("weekly workload uses a Monday-to-Monday Moscow range", () => {

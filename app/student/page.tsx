@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { getStudentBacklog, getStudentToday, type TodayItem } from "@/lib/studentDashboard";
 import { getStudentJourneyOverview } from "@/lib/studentJourney";
+import { getMoscowDayRange } from "@/lib/coursePolicy";
 import { getGenericVideoEmbedUrl } from "@/lib/webinarVideo";
 
 export const dynamic = "force-dynamic";
@@ -52,11 +53,14 @@ export default async function StudentPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
+  const now = new Date();
+  const tomorrow = getMoscowDayRange(now).end;
+
   const [todayItems, backlogItems, upcomingWebinars, studyPlanRecord, journey] = await Promise.all([
-    getStudentToday(user.id),
-    getStudentBacklog(user.id),
+    getStudentToday(user.id, now),
+    getStudentBacklog(user.id, now),
     prisma.webinarSchedule.findMany({
-      where: { isPublished: true, scheduledAt: { gte: new Date() } },
+      where: { isPublished: true, scheduledAt: { gte: tomorrow } },
       orderBy: { scheduledAt: "asc" },
       take: 4,
     }),
@@ -99,7 +103,7 @@ export default async function StudentPage() {
 
         <section className="mt-5 overflow-hidden rounded-[32px] bg-[#092535] px-6 py-7 text-white shadow-xl sm:px-8 lg:px-10 lg:py-9">
           <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-            <div><div className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300">dashboard.today</div><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{firstName}, вот план курса на сегодня.</h1><p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Здесь отображается только то, что преподаватель поставил в общий годовой график на текущую дату. Рекомендации и долги не подменяют основной план.</p></div>
+            <div><div className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300">dashboard.today</div><h1 className="mt-3 text-3xl font-black tracking-[-0.04em] sm:text-5xl">{firstName}, вот план курса на сегодня.</h1><p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">Здесь собраны учебные действия из годового графика и опубликованные вебинары на текущую дату. Рекомендации и долги не подменяют основной план.</p></div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between"><span className="text-xs font-bold text-slate-300">Самостоятельный старт</span><span className="font-mono text-xs text-cyan-300">{completedStartSteps}/3</span></div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${(completedStartSteps / 3) * 100}%` }} /></div>

@@ -14,6 +14,20 @@ export const COURSE_ITEM_LABELS: Record<CourseItemType, string> = {
   OTHER: "Другое",
 };
 
+export const MANUAL_COURSE_ITEM_TYPES = [
+  "THEORY",
+  "PRACTICE",
+  "HOMEWORK",
+  "VARIANT",
+  "CONTROL",
+  "ERROR_REVIEW",
+  "OTHER",
+] as const satisfies readonly CourseItemType[];
+
+export function isManualCourseItemType(type: CourseItemType) {
+  return type !== "WEBINAR";
+}
+
 export const DIAGNOSTIC_LEVEL_LABELS: Record<DiagnosticTaskLevel, string> = {
   FOUNDATION: "Совсем простое",
   BASIC: "Базовое",

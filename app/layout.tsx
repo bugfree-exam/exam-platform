@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { HistoryBackNavigation } from "@/components/navigation/HistoryBackNavigation";
 import { getTelegramConfig } from "@/lib/telegram";
 
 import "./globals.css";
@@ -55,6 +56,7 @@ export default function RootLayout({
         className="responsive-page-shell min-h-full flex flex-col"
         data-telegram-enabled={telegramEnabled ? "true" : "false"}
       >
+        <HistoryBackNavigation />
         {children}
       </body>
     </html>

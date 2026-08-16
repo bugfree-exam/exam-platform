@@ -38,14 +38,25 @@ function defaultHref(type: CourseItemType, egeNumbers: number[]) {
 
 export async function getStudentToday(studentId: string, now = new Date()) {
   const course = await getStudentCourse(studentId);
-  if (!course) return [];
   const { start, end } = getMoscowDayRange(now);
-  const scheduled = await prisma.courseScheduleItem.findMany({
-    where: { courseId: course.id, scheduledFor: { gte: start, lt: end } },
-    orderBy: [{ scheduledFor: "asc" }, { order: "asc" }],
-  });
+  const [scheduled, webinars] = await Promise.all([
+    course
+      ? prisma.courseScheduleItem.findMany({
+          where: {
+            courseId: course.id,
+            type: { not: "WEBINAR" },
+            scheduledFor: { gte: start, lt: end },
+          },
+          orderBy: [{ scheduledFor: "asc" }, { order: "asc" }],
+        })
+      : Promise.resolve([]),
+    prisma.webinarSchedule.findMany({
+      where: { isPublished: true, scheduledAt: { gte: start, lt: end } },
+      orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+    }),
+  ]);
 
-  return scheduled.map((item, index): TodayItem => {
+  const courseItems = scheduled.map((item): TodayItem => {
     const numbers = item.egeNumbers as number[];
     const href = item.href || defaultHref(item.type, numbers);
     return {
@@ -58,12 +69,30 @@ export async function getStudentToday(studentId: string, now = new Date()) {
       why: "Этот пункт поставлен преподавателем в общий график курса именно на сегодня.",
       href,
       action: item.type === "WEBINAR" ? "Подключиться" : "Открыть",
-      priority: scheduled.length - index,
+      priority: 0,
       estimatedMinutes: item.estimatedMinutes,
       scheduledFor: item.scheduledFor,
       external: href.startsWith("http://") || href.startsWith("https://"),
     };
   });
+
+  const webinarItems = webinars.map((webinar): TodayItem => ({
+    key: `webinar-${webinar.id}`,
+    kind: "WEBINAR",
+    title: webinar.topic,
+    description: webinar.announcement || "Живой вебинар по расписанию преподавателя",
+    why: "Преподаватель опубликовал вебинар на сегодняшнюю дату.",
+    href: webinar.joinUrl,
+    action: "Подключиться",
+    priority: 0,
+    estimatedMinutes: 90,
+    scheduledFor: webinar.scheduledAt,
+    external: true,
+  }));
+
+  return [...courseItems, ...webinarItems]
+    .sort((left, right) => left.scheduledFor.getTime() - right.scheduledFor.getTime())
+    .map((item, index, items) => ({ ...item, priority: items.length - index }));
 }
 
 export async function getStudentBacklog(studentId: string, now = new Date()) {

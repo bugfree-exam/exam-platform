@@ -10,11 +10,18 @@ import {
   validateModuleDates,
 } from "./coursePolicy";
 import { EGE_SKILL_MAP } from "./egeSkillMap";
+import { getMoscowWeekRange } from "./studentOverviewPolicy";
 
 test("Today uses the exact Moscow calendar day", () => {
   const { start, end } = getMoscowDayRange(new Date("2026-08-14T21:30:00.000Z"));
   assert.equal(start.toISOString(), "2026-08-14T21:00:00.000Z");
   assert.equal(end.toISOString(), "2026-08-15T21:00:00.000Z");
+});
+
+test("weekly workload uses a Monday-to-Monday Moscow range", () => {
+  const { start, end } = getMoscowWeekRange(new Date("2026-08-16T22:30:00.000Z"));
+  assert.equal(start.toISOString(), "2026-08-16T21:00:00.000Z");
+  assert.equal(end.toISOString(), "2026-08-23T21:00:00.000Z");
 });
 
 test("teacher sequence keeps valid EGE numbers in the entered order", () => {

@@ -213,6 +213,7 @@ model User {
   studyPlans         StudentStudyPlan[]
   aiGenerations      AiGeneration[]
   activitySessions   StudentActivitySession[]
+  webinarViews       WebinarView[]
   preparationProfile StudentPreparationProfile?
   diagnosticAttempts StudentDiagnosticAttempt[]
   roadmaps           StudentRoadmap[]
@@ -450,7 +451,7 @@ model CourseSkillLevel {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  course AnnualCourse     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course AnnualCourse      @relation(fields: [courseId], references: [id], onDelete: Cascade)
   nodes  CourseSkillNode[]
 
   @@unique([courseId, order])
@@ -469,7 +470,7 @@ model CourseSkillNode {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  course            AnnualCourse           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course            AnnualCourse            @relation(fields: [courseId], references: [id], onDelete: Cascade)
   level             CourseSkillLevel        @relation(fields: [levelId], references: [id], onDelete: Cascade)
   prerequisiteLinks CourseSkillDependency[] @relation("SkillNodePrerequisites")
   dependentLinks    CourseSkillDependency[] @relation("SkillNodeDependents")
@@ -994,10 +995,27 @@ model Webinar {
   updatedAt DateTime @updatedAt
 
   materials WebinarMaterial[]
+  views     WebinarView[]
 
   @@index([status])
   @@index([eventDate])
   @@index([publishedAt])
+}
+
+model WebinarView {
+  id            String   @id @default(cuid())
+  studentId     String
+  webinarId     String
+  firstViewedAt DateTime @default(now())
+  lastViewedAt  DateTime @default(now())
+  viewCount     Int      @default(1)
+
+  student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  webinar Webinar @relation(fields: [webinarId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, webinarId])
+  @@index([studentId, lastViewedAt])
+  @@index([webinarId, lastViewedAt])
 }
 
 model WebinarMaterial {

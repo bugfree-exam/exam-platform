@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { WebinarViewTracker } from "@/components/student/WebinarViewTracker";
 import { prisma } from "@/lib/prisma";
 import {
   getVideoProviderLabel,
@@ -215,6 +216,7 @@ export default async function StudentWebinarPage({
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#f3f7fa] text-[#102638]">
+      <WebinarViewTracker webinarId={webinar.id} />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.42]"

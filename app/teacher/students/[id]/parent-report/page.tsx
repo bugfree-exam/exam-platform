@@ -3,784 +3,318 @@ import { notFound } from "next/navigation";
 
 import { CopyReportButton } from "@/components/homeworks/CopyReportButton";
 import { PrintReportButton } from "@/components/reports/PrintReportButton";
+import { requireTeacherPage } from "@/lib/access";
+import { primaryToEgeTestScore } from "@/lib/egeScore";
 import { prisma } from "@/lib/prisma";
+import { getStudentAnalytics } from "@/lib/studentAnalytics";
 
 type ParentReportPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
-  searchParams: Promise<{
-    period?: string;
-  }>;
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ period?: string }>;
 };
 
 const REPORT_PERIODS = [
-  {
-    value: "all",
-    label: "За всё время",
-  },
-  {
-    value: "7d",
-    label: "Последние 7 дней",
-  },
-  {
-    value: "30d",
-    label: "Последние 30 дней",
-  },
-  {
-    value: "month",
-    label: "Текущий месяц",
-  },
+  { value: "all", label: "За всё время" },
+  { value: "7d", label: "Последние 7 дней" },
+  { value: "30d", label: "Последние 30 дней" },
+  { value: "month", label: "Текущий месяц" },
 ] as const;
 
 type ReportPeriod = (typeof REPORT_PERIODS)[number]["value"];
 
 function getReportPeriod(value: string | undefined): ReportPeriod {
-  if (value === "7d" || value === "30d" || value === "month") {
-    return value;
-  }
-
-  return "all";
+  return value === "7d" || value === "30d" || value === "month" ? value : "all";
 }
 
-function getPeriodInfo(period: ReportPeriod) {
-  const now = new Date();
-
-  if (period === "all") {
-    return {
-      start: null as Date | null,
-      end: null as Date | null,
-      label: "за всё время",
-    };
-  }
-
-  if (period === "7d") {
-    const start = new Date(now);
-    start.setDate(start.getDate() - 7);
-
-    return {
-      start,
-      end: now,
-      label: "за последние 7 дней",
-    };
-  }
-
-  if (period === "30d") {
-    const start = new Date(now);
-    start.setDate(start.getDate() - 30);
-
-    return {
-      start,
-      end: now,
-      label: "за последние 30 дней",
-    };
-  }
-
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  return {
-    start,
-    end: now,
-    label: "за текущий месяц",
-  };
+function getPeriodInfo(period: ReportPeriod, now = new Date()) {
+  if (period === "all") return { start: null as Date | null, end: now, label: "за всё время" };
+  if (period === "month") return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now, label: "за текущий месяц" };
+  const start = new Date(now);
+  start.setDate(start.getDate() - (period === "7d" ? 7 : 30));
+  return { start, end: now, label: period === "7d" ? "за последние 7 дней" : "за последние 30 дней" };
 }
 
-function isDateInPeriod({
-  date,
-  start,
-  end,
-}: {
-  date: Date | null;
-  start: Date | null;
-  end: Date | null;
-}) {
-  if (!start || !end) {
-    return true;
-  }
-
-  if (!date) {
-    return false;
-  }
-
-  return date >= start && date <= end;
+function inPeriod(value: Date | null, start: Date | null, end: Date) {
+  if (!value) return false;
+  return (!start || value >= start) && value <= end;
 }
 
-function formatDate(date: Date | null) {
-  if (!date) {
-    return "—";
-  }
-
+function formatDate(value: Date | null) {
+  if (!value) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "short",
-  }).format(date);
+    timeZone: "Europe/Moscow",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(value);
 }
 
-function formatDateTime(date: Date | null) {
-  if (!date) {
-    return "—";
-  }
-
+function formatDateTime(value: Date | null) {
+  if (!value) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
+    timeZone: "Europe/Moscow",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
 }
 
-function getResultLabel(percent: number) {
-  if (percent === 100) {
-    return "отлично";
-  }
-
-  if (percent >= 80) {
-    return "хорошо";
-  }
-
-  if (percent >= 50) {
-    return "есть ошибки";
-  }
-
-  return "требуется разбор";
+function percent(part: number, total: number) {
+  return total === 0 ? 0 : Math.round((part / total) * 100);
 }
 
-function getResultClass(percent: number) {
-  if (percent >= 80) {
-    return "bg-emerald-50 text-emerald-700";
-  }
-
-  if (percent >= 50) {
-    return "bg-amber-50 text-amber-700";
-  }
-
-  return "bg-red-50 text-red-700";
+function formatMinutes(minutes: number) {
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
 }
 
-export default async function ParentReportPage({
-  params,
-  searchParams,
-}: ParentReportPageProps) {
+function resultTone(value: number) {
+  if (value >= 80) return "bg-emerald-50 text-emerald-800";
+  if (value >= 50) return "bg-amber-50 text-amber-800";
+  return "bg-rose-50 text-rose-800";
+}
+
+export default async function ParentReportPage({ params, searchParams }: ParentReportPageProps) {
+  await requireTeacherPage();
   const { id } = await params;
   const query = await searchParams;
-
+  const now = new Date();
   const selectedPeriod = getReportPeriod(query.period);
-  const periodInfo = getPeriodInfo(selectedPeriod);
+  const period = getPeriodInfo(selectedPeriod, now);
 
   const student = await prisma.user.findFirst({
-    where: {
-      id,
-      role: "STUDENT",
-    },
+    where: { id, role: "STUDENT" },
     include: {
-      assignedHomeworks: {
-        where: {
-          homework: {
-            status: {
-              not: "ARCHIVED",
-            },
-          },
-        },
+      preparationProfile: true,
+      courseEnrollments: {
+        where: { isActive: true, course: { status: "PUBLISHED" } },
+        take: 1,
+        orderBy: { joinedAt: "desc" },
         include: {
-          homework: {
+          course: {
             include: {
-              tasks: {
-                include: {
-                  taskRevision: {
-                    select: {
-                      id: true,
-                      egeNumber: true,
-                      title: true,
-                    },
-                  },
-                },
-                orderBy: {
-                  order: "asc",
-                },
-              },
+              modules: { orderBy: { order: "asc" } },
+              scheduleItems: { orderBy: { scheduledFor: "asc" } },
             },
           },
         },
-        orderBy: {
-          assignedAt: "desc",
-        },
+      },
+      diagnosticAttempts: {
+        where: { status: "COMPLETED" },
+        take: 1,
+        orderBy: { completedAt: "desc" },
+      },
+      assignedHomeworks: {
+        where: { homework: { status: { not: "ARCHIVED" } } },
+        include: { homework: { include: { tasks: true } } },
+        orderBy: { assignedAt: "desc" },
       },
       attempts: {
-        where: {
-          status: "SUBMITTED",
-          homework: {
-            status: {
-              not: "ARCHIVED",
-            },
-          },
-        },
+        where: { status: "SUBMITTED", homework: { status: { not: "ARCHIVED" } } },
         include: {
-          homework: {
-            select: {
-              id: true,
-              title: true,
-              deadline: true,
-            },
-          },
+          homework: { select: { id: true, title: true, deadline: true } },
           answers: {
-            include: {
-              taskRevision: {
-                select: {
-                  id: true,
-                  egeNumber: true,
-                  title: true,
-                },
-              },
-            },
+            select: { isCorrect: true, taskRevision: { select: { egeNumber: true } } },
           },
         },
-        orderBy: {
-          submittedAt: "desc",
-        },
+        orderBy: { submittedAt: "desc" },
       },
+      variantAttempts: {
+        where: { status: "SUBMITTED" },
+        include: { variant: { select: { title: true } } },
+        orderBy: { submittedAt: "desc" },
+      },
+      practiceAttempts: {
+        include: { taskRevision: { select: { egeNumber: true } } },
+        orderBy: { createdAt: "desc" },
+      },
+      webinarViews: {
+        include: { webinar: { select: { title: true, egeNumber: true } } },
+        orderBy: { lastViewedAt: "desc" },
+      },
+      activitySessions: { orderBy: { lastSeenAt: "desc" } },
+      errorCorrections: { orderBy: { updatedAt: "desc" } },
     },
   });
 
-  if (!student) {
-    notFound();
-  }
+  if (!student) notFound();
 
-  const latestAttemptByHomework = new Map<
-    string,
-    (typeof student.attempts)[number]
-  >();
-
+  const analytics = await getStudentAnalytics(student.id, "all");
+  const latestAttemptByHomework = new Map<string, (typeof student.attempts)[number]>();
   for (const attempt of student.attempts) {
-    if (!latestAttemptByHomework.has(attempt.homeworkId)) {
-      latestAttemptByHomework.set(attempt.homeworkId, attempt);
-    }
+    if (!latestAttemptByHomework.has(attempt.homeworkId)) latestAttemptByHomework.set(attempt.homeworkId, attempt);
   }
 
-  const allHomeworkRows = student.assignedHomeworks.map((assignment) => {
-    const attempt = latestAttemptByHomework.get(assignment.homeworkId);
-
-    const wrongAnswers = attempt
-      ? attempt.answers.filter((answer) => !answer.isCorrect)
-      : [];
-
-    const weakNumbers = Array.from(
-      new Set(wrongAnswers.map((answer) => answer.taskRevision.egeNumber))
-    ).sort((a, b) => a - b);
-
-    return {
+  const homeworkRows = student.assignedHomeworks
+    .map((assignment) => ({
       assignment,
-      attempt,
-      wrongAnswers,
-      weakNumbers,
-    };
-  });
-
-  const homeworkRows = allHomeworkRows.filter((row) => {
-    if (!periodInfo.start || !periodInfo.end) {
-      return true;
-    }
-
-    return (
-      isDateInPeriod({
-        date: row.assignment.assignedAt,
-        start: periodInfo.start,
-        end: periodInfo.end,
-      }) ||
-      isDateInPeriod({
-        date: row.assignment.homework.deadline,
-        start: periodInfo.start,
-        end: periodInfo.end,
-      }) ||
-      isDateInPeriod({
-        date: row.attempt?.submittedAt ?? null,
-        start: periodInfo.start,
-        end: periodInfo.end,
-      })
-    );
-  });
-
-  const assignedCount = homeworkRows.length;
-  const submittedRows = homeworkRows.filter((row) => row.attempt);
-  const submittedCount = submittedRows.length;
-  const notSubmittedCount = assignedCount - submittedCount;
-
-  const averagePercent =
-    submittedRows.length === 0
-      ? 0
-      : Math.round(
-          submittedRows.reduce(
-            (sum, row) => sum + (row.attempt?.percent ?? 0),
-            0
-          ) / submittedRows.length
-        );
-
-  const totalCorrect = submittedRows.reduce(
-    (sum, row) => sum + (row.attempt?.score ?? 0),
-    0
-  );
-
-  const totalMax = submittedRows.reduce(
-    (sum, row) => sum + (row.attempt?.maxScore ?? 0),
-    0
-  );
-
-  const weakNumberStats = new Map<
-    number,
-    {
-      errors: number;
-      titles: Set<string>;
-    }
-  >();
-
-  for (const row of homeworkRows) {
-    for (const answer of row.wrongAnswers) {
-      const current = weakNumberStats.get(answer.taskRevision.egeNumber) ?? {
-        errors: 0,
-        titles: new Set<string>(),
-      };
-
-      current.errors += 1;
-      current.titles.add(answer.taskRevision.title);
-
-      weakNumberStats.set(answer.taskRevision.egeNumber, current);
-    }
-  }
-
-  const weakNumbers = Array.from(weakNumberStats.entries())
-    .map(([egeNumber, stat]) => ({
-      egeNumber,
-      errors: stat.errors,
-      titles: Array.from(stat.titles),
+      attempt: latestAttemptByHomework.get(assignment.homeworkId) ?? null,
     }))
-    .sort((a, b) => b.errors - a.errors)
-    .slice(0, 8);
+    .filter(({ assignment, attempt }) =>
+      selectedPeriod === "all" ||
+      inPeriod(assignment.assignedAt, period.start, period.end) ||
+      inPeriod(assignment.homework.deadline, period.start, period.end) ||
+      inPeriod(attempt?.submittedAt ?? null, period.start, period.end),
+    );
+  const submittedHomeworks = homeworkRows.filter((item) => item.attempt);
+  const overdueHomeworks = homeworkRows.filter(
+    (item) => !item.attempt && item.assignment.homework.deadline && item.assignment.homework.deadline < now,
+  );
+  const homeworkAverage = submittedHomeworks.length
+    ? Math.round(submittedHomeworks.reduce((sum, item) => sum + (item.attempt?.percent ?? 0), 0) / submittedHomeworks.length)
+    : 0;
+  const onTimeHomeworks = submittedHomeworks.filter((item) =>
+    !item.assignment.homework.deadline || Boolean(item.attempt?.submittedAt && item.attempt.submittedAt <= item.assignment.homework.deadline),
+  );
 
-  const strongestRows = submittedRows
-    .filter((row) => (row.attempt?.percent ?? 0) >= 80)
-    .slice(0, 5);
+  const variants = student.variantAttempts.filter((item) =>
+    inPeriod(item.submittedAt, period.start, period.end),
+  );
+  const practice = student.practiceAttempts.filter((item) =>
+    inPeriod(item.createdAt, period.start, period.end),
+  );
+  const webinarViews = student.webinarViews.filter((item) =>
+    inPeriod(item.lastViewedAt, period.start, period.end),
+  );
+  const sessions = student.activitySessions.filter((item) =>
+    inPeriod(item.lastSeenAt, period.start, period.end),
+  );
+  const activityMinutes = Math.round(
+    sessions.reduce(
+      (sum, item) => sum + Math.max(0, item.lastSeenAt.getTime() - item.startedAt.getTime()),
+      0,
+    ) / 60_000,
+  );
+  const activeDays = new Set(
+    sessions.map((item) =>
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow" }).format(item.startedAt),
+    ),
+  ).size;
 
-  const needsAttentionRows = homeworkRows.filter((row) => {
-    if (!row.attempt) {
-      return true;
-    }
+  const course = student.courseEnrollments[0]?.course ?? null;
+  const currentModule = course?.modules.find((item) => item.startDate <= now && item.endDate >= now) ?? null;
+  const passedCourseItems = course?.scheduleItems.filter((item) => item.scheduledFor < now).length ?? 0;
+  const calendarProgress = percent(passedCourseItems, course?.scheduleItems.length ?? 0);
+  const latestVariant = student.variantAttempts[0] ?? null;
+  const masteredSkills = analytics.skills.filter((item) => item.status === "MASTERED");
+  const focusSkills = analytics.focusSkills;
+  const openCorrections = student.errorCorrections.filter((item) => item.status === "OPEN").length;
+  const awaitingControl = student.errorCorrections.filter((item) => item.status === "CORRECTED").length;
+  const verifiedCorrections = student.errorCorrections.filter((item) => item.status === "VERIFIED").length;
 
-    return row.attempt.percent < 70;
-  });
+  const positiveSignals = [
+    ...(homeworkRows.length > 0 && overdueHomeworks.length === 0 ? ["нет просроченных домашних заданий"] : []),
+    ...(homeworkAverage >= 80 ? [`средний результат ДЗ ${homeworkAverage}%`] : []),
+    ...(practice.length >= 5 ? [`${practice.length} ответов в личной практике`] : []),
+    ...(masteredSkills.length > 0 ? [`${masteredSkills.length} навыков подтверждены`] : []),
+  ];
+  const attentionSignals = [
+    ...(overdueHomeworks.length > 0 ? [`закрыть ${overdueHomeworks.length} просроченных ДЗ`] : []),
+    ...(activeDays === 0 ? ["вернуть регулярную активность на платформе"] : []),
+    ...(openCorrections > 0 ? [`исправить ${openCorrections} открытых ошибок`] : []),
+    ...(focusSkills.length > 0 ? [`повторить задания ${focusSkills.map((item) => `№${item.egeNumber}`).join(", ")}`] : []),
+  ];
+
+  const conclusion = attentionSignals.length === 0
+    ? "Подготовка идёт в рабочем ритме. Важно сохранить регулярность, продолжать идти по годовому курсу и закреплять уже освоенные темы."
+    : `Главная задача на следующий период — ${attentionSignals.join("; ")}. Платформа и преподаватель уже видят эти точки и могут корректировать персональную отработку.`;
 
   const reportText = [
-    `Отчёт по домашним заданиям: ${student.name}`,
-    `Период: ${periodInfo.label}`,
-    `Дата отчёта: ${formatDate(new Date())}`,
+    `Отчёт о подготовке: ${student.name}`,
+    `Период: ${period.label}`,
+    `Дата: ${formatDate(now)}`,
     "",
-    `Всего выдано ДЗ в периоде: ${assignedCount}`,
-    `Сдано: ${submittedCount}`,
-    `Не сдано: ${notSubmittedCount}`,
-    `Средний результат по сданным ДЗ: ${averagePercent}%`,
-    totalMax > 0 ? `Верных ответов: ${totalCorrect}/${totalMax}` : "",
+    student.preparationProfile ? `Цель: ${student.preparationProfile.targetScore}+ баллов, ресурс ${formatMinutes(student.preparationProfile.weeklyMinutes)} в неделю` : "Цель и недельный ресурс пока не зафиксированы",
+    course ? `Курс: ${course.title}${currentModule ? `, текущая тема «${currentModule.title}»` : ""}` : "Годовой курс пока не назначен",
+    latestVariant ? `Последний пробник: ${primaryToEgeTestScore(latestVariant.score)}/100` : "Пробники пока не завершались",
     "",
-    "Краткая сводка по ДЗ:",
-    ...homeworkRows.map((row) => {
-      if (!row.attempt) {
-        return `• ${row.assignment.homework.title}: не сдано`;
-      }
-
-      const weak = row.weakNumbers.length
-        ? `, повторить ${row.weakNumbers
-            .map((number) => `№${number}`)
-            .join(", ")}`
-        : "";
-
-      return `• ${row.assignment.homework.title}: ${row.attempt.score}/${row.attempt.maxScore} (${row.attempt.percent}%)${weak}`;
-    }),
+    `Активность ${period.label}: ${activeDays} активных дней, ориентировочно ${formatMinutes(activityMinutes)} на платформе`,
+    `Домашние задания: ${submittedHomeworks.length}/${homeworkRows.length} сдано, средний результат ${homeworkAverage}%`,
+    `Личная практика: ${practice.length} ответов, ${percent(practice.filter((item) => item.isCorrect).length, practice.length)}% верно`,
+    `Пробники: ${variants.length}`,
+    `Открыто вебинаров: ${webinarViews.length}`,
     "",
-    weakNumbers.length > 0
-      ? `Что стоит повторить: ${weakNumbers
-          .map((item) => `№${item.egeNumber}`)
-          .join(", ")}`
-      : "Ошибок по сданным ДЗ сейчас нет.",
-    "",
-    needsAttentionRows.length > 0
-      ? "Рекомендация: разобрать ошибки и закрыть несданные домашние задания."
-      : "Рекомендация: продолжать в том же темпе и закреплять результат.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+    positiveSignals.length ? `Что получается: ${positiveSignals.join("; ")}.` : "Положительная динамика появится после накопления учебных действий.",
+    `Вывод: ${conclusion}`,
+  ].join("\n");
 
   return (
-    <main className="min-h-screen bg-slate-100 px-6 py-8 print:bg-white print:px-0 print:py-0">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
-          <Link
-            href={`/teacher/students/${student.id}`}
-            className="text-sm font-medium text-cyan-700 hover:text-cyan-900"
-          >
-            ← К карточке ученика
-          </Link>
-
-          <div className="flex flex-wrap gap-2">
-            <CopyReportButton text={reportText} />
-            <PrintReportButton />
-          </div>
+    <main className="min-h-screen bg-[#eef3f6] px-4 py-6 text-slate-950 print:bg-white print:px-0 print:py-0 sm:px-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <Link href={`/teacher/students/${student.id}`} className="text-sm font-bold text-cyan-800">← К центру контроля</Link>
+          <div className="flex flex-wrap gap-2"><CopyReportButton text={reportText} /><PrintReportButton /></div>
         </div>
 
-        <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm print:hidden">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-slate-950">
-              Период отчёта
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Выбери период, за который нужно сформировать отчёт для родителей.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {REPORT_PERIODS.map((period) => (
-              <Link
-                key={period.value}
-                href={`/teacher/students/${student.id}/parent-report${
-                  period.value === "all" ? "" : `?period=${period.value}`
-                }`}
-                className={
-                  selectedPeriod === period.value
-                    ? "rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
-                    : "rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                }
-              >
-                {period.label}
-              </Link>
+        <section className="mb-5 rounded-3xl border border-white bg-white p-5 shadow-sm print:hidden">
+          <div className="text-sm font-bold text-slate-600">Период отчёта</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {REPORT_PERIODS.map((item) => (
+              <Link key={item.value} href={`/teacher/students/${student.id}/parent-report${item.value === "all" ? "" : `?period=${item.value}`}`} className={selectedPeriod === item.value ? "rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white" : "rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600"}>{item.label}</Link>
             ))}
           </div>
         </section>
 
-        <article className="rounded-3xl bg-white p-8 shadow-sm print:rounded-none print:p-0 print:shadow-none">
-          <header className="border-b border-slate-200 pb-6">
-            <div className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-              Экзамен без багов
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-start justify-between gap-5">
-              <div>
-                <h1 className="text-3xl font-black text-slate-950">
-                  Отчёт по домашним заданиям
-                </h1>
-
-                <p className="mt-2 text-lg font-semibold text-slate-700">
-                  {student.name}
-                </p>
-
-                <p className="mt-1 text-sm text-slate-500">{student.email}</p>
-
-                <div className="mt-4 inline-flex rounded-full bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700">
-                  Период: {periodInfo.label}
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 px-5 py-4 text-right">
-                <div className="text-sm font-medium text-slate-500">
-                  Дата отчёта
-                </div>
-                <div className="mt-1 text-xl font-bold text-slate-950">
-                  {formatDate(new Date())}
-                </div>
-              </div>
+        <article className="overflow-hidden rounded-[32px] bg-white shadow-sm print:rounded-none print:shadow-none">
+          <header className="bg-[#092535] px-6 py-7 text-white print:bg-white print:px-0 print:text-slate-950 sm:px-9 sm:py-9">
+            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-300 print:text-cyan-700">Экзамен без багов · отчёт о подготовке</div>
+            <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div><h1 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">{student.name}</h1><p className="mt-2 text-sm text-slate-300 print:text-slate-500">Состояние подготовки {period.label}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 print:border-slate-200 print:bg-slate-50"><div className="text-xs text-slate-400">Дата отчёта</div><div className="mt-1 font-bold">{formatDate(now)}</div></div>
             </div>
           </header>
 
-          <section className="grid gap-4 py-6 md:grid-cols-4 print:grid-cols-4">
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-sm font-medium text-slate-500">Выдано ДЗ</div>
-              <div className="mt-2 text-3xl font-black text-slate-950">
-                {assignedCount}
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-emerald-50 p-4">
-              <div className="text-sm font-medium text-emerald-700">Сдано</div>
-              <div className="mt-2 text-3xl font-black text-emerald-800">
-                {submittedCount}
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-amber-50 p-4">
-              <div className="text-sm font-medium text-amber-700">Не сдано</div>
-              <div className="mt-2 text-3xl font-black text-amber-800">
-                {notSubmittedCount}
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-cyan-50 p-4">
-              <div className="text-sm font-medium text-cyan-700">
-                Средний результат
-              </div>
-              <div className="mt-2 text-3xl font-black text-cyan-800">
-                {averagePercent}%
-              </div>
-            </div>
-          </section>
-
-          <section className="border-t border-slate-200 py-6">
-            <h2 className="text-2xl font-bold text-slate-950">
-              Общий вывод
-            </h2>
-
-            <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-sm leading-7 text-slate-700">
-              {assignedCount === 0 ? (
-                <p>
-                  За выбранный период активных домашних заданий не найдено.
-                  Можно выбрать другой период или сформировать отчёт за всё
-                  время.
-                </p>
-              ) : submittedCount === 0 ? (
-                <p>
-                  За выбранный период нет отправленных домашних заданий.
-                  Основная задача — начать регулярно сдавать работы, чтобы
-                  появилась статистика по ошибкам и прогрессу.
-                </p>
-              ) : averagePercent >= 80 && notSubmittedCount === 0 ? (
-                <p>
-                  У ученика хороший темп работы: домашние задания сдаются, а
-                  средний результат находится на высоком уровне. Рекомендуется
-                  продолжать закреплять результат и точечно разбирать оставшиеся
-                  ошибки.
-                </p>
-              ) : averagePercent >= 50 ? (
-                <p>
-                  У ученика есть рабочая база, но часть заданий требует
-                  дополнительного разбора. Важно закрыть ошибки по указанным
-                  номерам ЕГЭ и не накапливать несданные домашние задания.
-                </p>
-              ) : (
-                <p>
-                  Сейчас важно сфокусироваться не на проценте, а на регулярности
-                  и разборе ошибок. Рекомендуется разобрать проблемные задания
-                  вместе с преподавателем и затем повторить похожие задачи.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="border-t border-slate-200 py-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-950">
-                  Что требует внимания
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Несданные ДЗ и задания с низким результатом за выбранный
-                  период.
-                </p>
-              </div>
-
-              <div className="rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
-                {needsAttentionRows.length} пунктов
-              </div>
-            </div>
-
-            {needsAttentionRows.length === 0 ? (
-              <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm leading-6 text-emerald-800">
-                Критичных проблем нет: нет несданных ДЗ и результатов ниже 70%.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3">
-                {needsAttentionRows.map((row) => (
-                  <div
-                    key={row.assignment.id}
-                    className="rounded-2xl border border-red-100 bg-red-50 p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="font-bold text-slate-950">
-                          {row.assignment.homework.title}
-                        </div>
-                        <div className="mt-1 text-sm text-red-800">
-                          {row.attempt
-                            ? `Результат ${row.attempt.percent}%`
-                            : "Работа пока не сдана"}
-                        </div>
-                      </div>
-
-                      {row.weakNumbers.length > 0 ? (
-                        <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-red-700">
-                          Повторить{" "}
-                          {row.weakNumbers
-                            .map((number) => `№${number}`)
-                            .join(", ")}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="border-t border-slate-200 py-6">
-            <h2 className="text-2xl font-bold text-slate-950">
-              Номера ЕГЭ, которые стоит повторить
-            </h2>
-
-            {weakNumbers.length === 0 ? (
-              <div className="mt-4 rounded-2xl bg-emerald-50 p-5 text-sm leading-6 text-emerald-800">
-                По сданным домашним заданиям за выбранный период ошибок нет.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-2 print:grid-cols-2">
-                {weakNumbers.map((item) => (
-                  <div
-                    key={item.egeNumber}
-                    className="rounded-2xl bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-lg font-black text-slate-950">
-                          №{item.egeNumber} ЕГЭ
-                        </div>
-                        <div className="mt-1 text-sm text-slate-500">
-                          Ошибок: {item.errors}
-                        </div>
-                      </div>
-
-                      <div className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-                        Повторить
-                      </div>
-                    </div>
-
-                    {item.titles.length > 0 ? (
-                      <div className="mt-3 text-sm leading-6 text-slate-600">
-                        {item.titles.slice(0, 2).join("; ")}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {strongestRows.length > 0 ? (
-            <section className="border-t border-slate-200 py-6">
-              <h2 className="text-2xl font-bold text-slate-950">
-                Сильные результаты
-              </h2>
-
-              <div className="mt-4 grid gap-3">
-                {strongestRows.map((row) => (
-                  <div
-                    key={row.assignment.id}
-                    className="rounded-2xl bg-emerald-50 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="font-bold text-slate-950">
-                          {row.assignment.homework.title}
-                        </div>
-                        <div className="mt-1 text-sm text-emerald-800">
-                          Работа выполнена на хорошем уровне.
-                        </div>
-                      </div>
-
-                      <div className="rounded-full bg-white px-3 py-1 text-sm font-bold text-emerald-700">
-                        {row.attempt?.percent}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div className="px-6 py-7 sm:px-9 sm:py-9 print:px-0">
+            <section className="grid gap-3 md:grid-cols-3 print:grid-cols-3">
+              <div className="rounded-2xl bg-cyan-50 p-4"><div className="text-xs font-bold text-cyan-700">Цель</div><div className="mt-2 text-3xl font-black text-cyan-950">{student.preparationProfile ? `${student.preparationProfile.targetScore}+` : "—"}</div><div className="mt-1 text-xs text-cyan-800">{student.preparationProfile ? `${formatMinutes(student.preparationProfile.weeklyMinutes)} в неделю` : "ещё не задана"}</div></div>
+              <div className="rounded-2xl bg-violet-50 p-4"><div className="text-xs font-bold text-violet-700">Последний пробник</div><div className="mt-2 text-3xl font-black text-violet-950">{latestVariant ? `${primaryToEgeTestScore(latestVariant.score)}/100` : "—"}</div><div className="mt-1 text-xs text-violet-800">{latestVariant ? formatDate(latestVariant.submittedAt) : "пока не завершал"}</div></div>
+              <div className="rounded-2xl bg-emerald-50 p-4"><div className="text-xs font-bold text-emerald-700">Общая точность</div><div className="mt-2 text-3xl font-black text-emerald-950">{analytics.accuracy}%</div><div className="mt-1 text-xs text-emerald-800">по независимым ответам</div></div>
             </section>
-          ) : null}
 
-          <section className="border-t border-slate-200 py-6">
-            <h2 className="text-2xl font-bold text-slate-950">
-              Детализация по домашним заданиям
-            </h2>
+            <section className="mt-6 rounded-3xl border border-slate-200 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-black">Годовой курс</h2><p className="mt-1 text-sm text-slate-500">{course?.title ?? "Курс пока не назначен"}</p></div><span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">Календарная точка {calendarProgress}%</span></div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-cyan-500" style={{ width: `${calendarProgress}%` }} /></div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs text-slate-500">Текущий модуль</div><div className="mt-1 font-bold">{currentModule?.title ?? "Сейчас между модулями"}</div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs text-slate-500">Стартовая диагностика</div><div className="mt-1 font-bold">{student.diagnosticAttempts[0] ? `${student.diagnosticAttempts[0].score}/${student.diagnosticAttempts[0].maxScore}` : "ещё не завершена"}</div></div></div>
+            </section>
 
-            {homeworkRows.length === 0 ? (
-              <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-                За выбранный период активных домашних заданий не найдено.
+            <section className="mt-6">
+              <h2 className="text-xl font-black">Учебный ритм {period.label}</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 print:grid-cols-5">
+                {[
+                  { label: "Активных дней", value: String(activeDays), note: formatMinutes(activityMinutes) },
+                  { label: "ДЗ сдано", value: `${submittedHomeworks.length}/${homeworkRows.length}`, note: `${homeworkAverage}% в среднем` },
+                  { label: "Личная практика", value: String(practice.length), note: `${percent(practice.filter((item) => item.isCorrect).length, practice.length)}% верно` },
+                  { label: "Пробники", value: String(variants.length), note: variants[0] ? `${primaryToEgeTestScore(variants[0].score)}/100 последний` : "нет за период" },
+                  { label: "Вебинары", value: String(webinarViews.length), note: "страниц открыто" },
+                ].map((item) => <div key={item.label} className="rounded-2xl bg-slate-50 p-4"><div className="text-xs text-slate-500">{item.label}</div><div className="mt-1 text-2xl font-black">{item.value}</div><div className="mt-1 text-[11px] text-slate-400">{item.note}</div></div>)}
               </div>
-            ) : (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
-                    <tr>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Домашнее задание
-                      </th>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Выдано
-                      </th>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Дедлайн
-                      </th>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Статус
-                      </th>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Результат
-                      </th>
-                      <th className="border-b border-slate-200 px-4 py-3">
-                        Ошибки
-                      </th>
-                    </tr>
-                  </thead>
+              <p className="mt-3 text-xs leading-5 text-slate-400">Время на платформе является оценочным. Открытие вебинара подтверждает доступ к записи и материалам, но не гарантирует полный досмотр внешнего видео.</p>
+            </section>
 
-                  <tbody>
-                    {homeworkRows.map((row) => (
-                      <tr key={row.assignment.id}>
-                        <td className="border-b border-slate-100 px-4 py-3 font-semibold text-slate-950">
-                          {row.assignment.homework.title}
-                        </td>
-                        <td className="border-b border-slate-100 px-4 py-3 text-slate-600">
-                          {formatDate(row.assignment.assignedAt)}
-                        </td>
-                        <td className="border-b border-slate-100 px-4 py-3 text-slate-600">
-                          {formatDate(row.assignment.homework.deadline)}
-                        </td>
-                        <td className="border-b border-slate-100 px-4 py-3">
-                          {row.attempt ? (
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${getResultClass(
-                                row.attempt.percent
-                              )}`}
-                            >
-                              {getResultLabel(row.attempt.percent)}
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                              не сдано
-                            </span>
-                          )}
-                        </td>
-                        <td className="border-b border-slate-100 px-4 py-3 font-semibold text-slate-950">
-                          {row.attempt
-                            ? `${row.attempt.score}/${row.attempt.maxScore} (${row.attempt.percent}%)`
-                            : "—"}
-                        </td>
-                        <td className="border-b border-slate-100 px-4 py-3 text-slate-600">
-                          {row.weakNumbers.length > 0
-                            ? row.weakNumbers
-                                .map((number) => `№${number}`)
-                                .join(", ")
-                            : row.attempt
-                              ? "нет"
-                              : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+            <section className="mt-6 grid gap-4 lg:grid-cols-2 print:grid-cols-2">
+              <article className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5"><h2 className="text-lg font-black text-emerald-950">Что получается</h2>{positiveSignals.length ? <ul className="mt-3 space-y-2 text-sm leading-6 text-emerald-900">{positiveSignals.map((item) => <li key={item}>✓ {item}</li>)}</ul> : <p className="mt-3 text-sm leading-6 text-emerald-900">Для уверенного вывода нужно накопить больше выполненных работ.</p>}</article>
+              <article className="rounded-3xl border border-amber-200 bg-amber-50 p-5"><h2 className="text-lg font-black text-amber-950">Что требует внимания</h2>{attentionSignals.length ? <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-900">{attentionSignals.map((item) => <li key={item}>→ {item}</li>)}</ul> : <p className="mt-3 text-sm leading-6 text-amber-900">Критических вопросов на текущий момент нет.</p>}</article>
+            </section>
 
-          <footer className="border-t border-slate-200 pt-6 text-sm leading-6 text-slate-500">
-            <div>
-              Отчёт сформирован автоматически на основе выполненных домашних
-              заданий на платформе “Экзамен без багов”.
-            </div>
-            <div className="mt-1">
-              Период отчёта: {periodInfo.label}.
-            </div>
-            <div className="mt-1">
-              Последнее обновление: {formatDateTime(new Date())}
-            </div>
-          </footer>
+            <section className="mt-6 rounded-3xl bg-[#092535] p-6 text-white print:border print:border-slate-200 print:bg-white print:text-slate-950"><div className="font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-300 print:text-cyan-700">Итог преподавателю и родителю</div><p className="mt-3 text-sm leading-7 text-slate-200 print:text-slate-700">{conclusion}</p></section>
+
+            <section className="mt-7 border-t border-slate-200 pt-6">
+              <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black">Домашние задания</h2><p className="mt-1 text-sm text-slate-500">Краткая детализация за выбранный период.</p></div><span className="text-xs font-bold text-slate-500">Вовремя: {onTimeHomeworks.length}/{submittedHomeworks.length}</span></div>
+              {homeworkRows.length === 0 ? <div className="mt-4 rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">В выбранном периоде домашних заданий нет.</div> : <div className="mt-4 space-y-2">{homeworkRows.map(({ assignment, attempt }) => { const weakNumbers = attempt ? Array.from(new Set(attempt.answers.filter((item) => !item.isCorrect).map((item) => item.taskRevision.egeNumber))).sort((a, b) => a - b) : []; return <div key={assignment.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="font-bold">{assignment.homework.title}</div><div className="mt-1 text-xs text-slate-500">Срок {formatDate(assignment.homework.deadline)}{weakNumbers.length ? ` · повторить ${weakNumbers.map((item) => `№${item}`).join(", ")}` : ""}</div></div><span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${attempt ? resultTone(attempt.percent) : "bg-rose-50 text-rose-800"}`}>{attempt ? `${Math.round(attempt.percent)}% · ${attempt.score}/${attempt.maxScore}` : "Не сдано"}</span></div>; })}</div>}
+            </section>
+
+            <section className="mt-7 grid gap-4 border-t border-slate-200 pt-6 lg:grid-cols-2 print:grid-cols-2">
+              <div><h2 className="text-xl font-black">Актуальный профиль навыков</h2><p className="mt-1 text-sm text-slate-500">Состояние за всё время, а не только за период отчёта.</p><div className="mt-4 flex flex-wrap gap-2">{masteredSkills.length ? masteredSkills.slice(0, 10).map((item) => <span key={item.egeNumber} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">№{item.egeNumber} освоено</span>) : <span className="text-sm text-slate-500">Подтверждённых навыков пока нет.</span>}</div></div>
+              <div><h2 className="text-xl font-black">Работа над ошибками</h2><div className="mt-4 grid grid-cols-3 gap-2"><div className="rounded-2xl bg-rose-50 p-3 text-center"><div className="text-xl font-black text-rose-900">{openCorrections}</div><div className="text-[10px] text-rose-700">открыто</div></div><div className="rounded-2xl bg-amber-50 p-3 text-center"><div className="text-xl font-black text-amber-900">{awaitingControl}</div><div className="text-[10px] text-amber-700">ждут контроля</div></div><div className="rounded-2xl bg-emerald-50 p-3 text-center"><div className="text-xl font-black text-emerald-900">{verifiedCorrections}</div><div className="text-[10px] text-emerald-700">подтверждено</div></div></div></div>
+            </section>
+
+            {variants.length > 0 ? <section className="mt-7 border-t border-slate-200 pt-6"><h2 className="text-xl font-black">Пробники за период</h2><div className="mt-4 grid gap-3 sm:grid-cols-2">{variants.map((item) => <div key={item.id} className="rounded-2xl border border-slate-200 p-4"><div className="font-bold">{item.variant.title}</div><div className="mt-3 flex items-end justify-between"><div><div className="text-3xl font-black">{primaryToEgeTestScore(item.score)}/100</div><div className="mt-1 text-xs text-slate-500">{item.score}/{item.maxScore} первичных</div></div><div className="text-xs text-slate-400">{formatDate(item.submittedAt)}</div></div></div>)}</div></section> : null}
+
+            <footer className="mt-8 border-t border-slate-200 pt-5 text-xs leading-5 text-slate-400">Отчёт сформирован автоматически по данным платформы «Экзамен без багов». Последнее обновление: {formatDateTime(now)}. Период: {period.label}.</footer>
+          </div>
         </article>
       </div>
     </main>

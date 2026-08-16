@@ -19,7 +19,7 @@ type ActivitySessionRow = {
 type TimelineItem = {
   id: string;
   at: Date;
-  type: "homework" | "variant" | "practice";
+  type: "homework" | "variant" | "practice" | "webinar";
   title: string;
   details: string;
 };
@@ -102,6 +102,17 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
           taskRevision: { select: { egeNumber: true, title: true } },
         },
       },
+      webinarViews: {
+        orderBy: { lastViewedAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          firstViewedAt: true,
+          lastViewedAt: true,
+          viewCount: true,
+          webinar: { select: { title: true } },
+        },
+      },
     },
   });
 
@@ -130,7 +141,8 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
   const solvedTasks =
     student.attempts.reduce((sum, item) => sum + item.answers.length, 0) +
     student.variantAttempts.reduce((sum, item) => sum + item.answers.length, 0) +
-    student.practiceAttempts.length;
+    student.practiceAttempts.length +
+    student.webinarViews.length;
 
   const timeline: TimelineItem[] = [
     ...student.attempts.flatMap<TimelineItem>((attempt) =>
@@ -165,6 +177,13 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
       type: "practice",
       title: `Тренажёр: №${attempt.taskRevision.egeNumber} — ${attempt.taskRevision.title}`,
       details: attempt.isCorrect ? "Ответ верный" : "Допущена ошибка",
+    })),
+    ...student.webinarViews.map<TimelineItem>((view) => ({
+      id: `webinar-${view.id}`,
+      at: view.lastViewedAt,
+      type: "webinar",
+      title: `Открыл вебинар «${view.webinar.title}»`,
+      details: `${view.viewCount} открытий · впервые ${formatDateTime(view.firstViewedAt)}`,
     })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())
@@ -243,7 +262,7 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
 
           <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-xl font-bold">Лог учебных действий</h2>
-            <p className="mt-1 text-sm text-slate-500">Сданные ДЗ, варианты и ответы в тренажёре.</p>
+            <p className="mt-1 text-sm text-slate-500">Сданные ДЗ, варианты, ответы в тренажёре и открытия вебинаров.</p>
 
             {timeline.length === 0 ? (
               <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">
@@ -259,7 +278,9 @@ export default async function StudentActivityPage({ params }: ActivityPageProps)
                           ? "mt-1 h-3 w-3 shrink-0 rounded-full bg-cyan-500"
                           : item.type === "variant"
                             ? "mt-1 h-3 w-3 shrink-0 rounded-full bg-violet-500"
-                            : "mt-1 h-3 w-3 shrink-0 rounded-full bg-emerald-500"
+                            : item.type === "practice"
+                              ? "mt-1 h-3 w-3 shrink-0 rounded-full bg-emerald-500"
+                              : "mt-1 h-3 w-3 shrink-0 rounded-full bg-sky-500"
                       }
                     />
                     <div className="min-w-0 flex-1">

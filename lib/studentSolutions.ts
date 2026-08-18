@@ -13,9 +13,11 @@ export function formatPublicStudentName(name: string) {
 export async function getStudentTaskSolutionAccess(
   studentId: string,
   taskId: string,
-  taskRevisionId?: string
+  requestedTaskRevisionId?: string
 ) {
-  const revisionFilter = taskRevisionId ? { taskRevisionId } : {};
+  const revisionFilter = requestedTaskRevisionId
+    ? { taskRevisionId: requestedTaskRevisionId }
+    : {};
   const [
     homeworkAnswer,
     practiceAttempt,

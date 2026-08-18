@@ -89,6 +89,12 @@ export default async function TaskPage({ params, searchParams }: TaskPageProps) 
 
           <div className="flex gap-2">
             <Link
+            href="/teacher/tasks/create"
+            className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            + Создать задачу
+            </Link>
+            <Link
               href={`/teacher/tasks/${task.id}/edit`}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >

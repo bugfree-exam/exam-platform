@@ -204,6 +204,7 @@ export async function POST(request: Request, context: RouteContext) {
           taskId: answer.taskId,
           task: {
             id: answer.taskId,
+            taskRevisionId: answer.taskRevision.id,
             egeNumber: answer.taskRevision.egeNumber,
             title: answer.taskRevision.title,
             answerType: answer.taskRevision.answerType,

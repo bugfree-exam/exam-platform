@@ -127,6 +127,7 @@ export default async function TeacherPage() {
     submittedAttempts,
     upcomingWebinarsCount,
     activeCoursesCount,
+    pendingSolutionsCount,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["studentStatus"],
@@ -292,6 +293,9 @@ export default async function TeacherPage() {
     prisma.annualCourse.count({
       where: { status: { in: ["DRAFT", "PUBLISHED"] } },
     }),
+    prisma.studentTaskSolution.count({
+      where: { publicationStatus: "PENDING_REVIEW" },
+    }),
   ]);
 
   const studentCountMap = new Map(
@@ -437,6 +441,14 @@ export default async function TeacherPage() {
       description: "Даты живых встреч, анонсы и ссылки для подключения.",
       value: upcomingWebinarsCount,
       unit: "предстоит",
+    },
+    {
+      href: "/teacher/solutions",
+      code: "09",
+      title: "Решения учеников",
+      description: "Личный Python-код, проверка и публикация лучших решений.",
+      value: pendingSolutionsCount,
+      unit: "ждут проверки",
     },
   ];
 

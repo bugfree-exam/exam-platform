@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
 import { HistoryBackNavigation } from "@/components/navigation/HistoryBackNavigation";
 import { getTelegramConfig } from "@/lib/telegram";
 
@@ -57,6 +58,7 @@ export default function RootLayout({
         data-telegram-enabled={telegramEnabled ? "true" : "false"}
       >
         <HistoryBackNavigation />
+        <Breadcrumbs />
         {children}
       </body>
     </html>

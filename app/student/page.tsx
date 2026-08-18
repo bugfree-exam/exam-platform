@@ -24,6 +24,7 @@ const sections = [
   { href: "/student/trainer", label: "Тренажёр", title: "Отработать номер", description: "Целенаправленная практика по выбранному номеру ЕГЭ.", accent: "bg-violet-50 text-violet-800" },
   { href: "/student/variants", label: "Экзамен", title: "Полные варианты", description: "27 заданий, таймер, автосохранение и разбор результата.", accent: "bg-amber-50 text-amber-800" },
   { href: "/student/results", label: "Динамика", title: "Результаты", description: "Готовность, слабые номера и подтверждённое освоение.", accent: "bg-emerald-50 text-emerald-800" },
+  { href: "/student/solutions", label: "Код", title: "Мои решения", description: "Личная история Python-кода по уже решённым задачам.", accent: "bg-fuchsia-50 text-fuchsia-800" },
   { href: "/student/webinars", label: "Материалы", title: "Вебинары и конспекты", description: "Записи, презентации, шпаргалки и материалы курса.", accent: "bg-sky-50 text-sky-800" },
 ] as const;
 

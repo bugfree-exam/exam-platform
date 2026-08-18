@@ -102,6 +102,17 @@ enum PracticeFeedbackStage {
   SOLUTION
 }
 
+enum StudentSolutionLanguage {
+  PYTHON_3_13
+}
+
+enum StudentSolutionPublicationStatus {
+  PRIVATE
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
 enum LearningErrorCause {
   THEORY_GAP
   ALGORITHM_GAP
@@ -221,6 +232,8 @@ model User {
   recoveryPeriods    StudentRecoveryPeriod[]
   errorCorrections   StudentErrorCorrection[]
   courseEnrollments  StudentCourseEnrollment[]
+  taskSolutions      StudentTaskSolution[] @relation("StudentTaskSolutions")
+  reviewedSolutions  StudentTaskSolution[] @relation("ReviewedStudentTaskSolutions")
 
   lastActivityAt DateTime?
 
@@ -665,6 +678,7 @@ model Task {
   diagnosticItems         StudentDiagnosticItem[]
   errorCorrections        StudentErrorCorrection[]
   diagnosticTemplateItems DiagnosticTemplateItem[]
+  studentSolutions        StudentTaskSolution[]
   revisions               TaskRevision[]           @relation("TaskRevisions")
   currentRevision         TaskRevision?            @relation("CurrentTaskRevision", fields: [currentRevisionId], references: [id], onDelete: Restrict)
 
@@ -704,6 +718,7 @@ model TaskRevision {
   diagnosticItems         StudentDiagnosticItem[]
   errorCorrections        StudentErrorCorrection[]
   diagnosticTemplateItems DiagnosticTemplateItem[]
+  studentSolutions        StudentTaskSolution[]
 
   @@unique([taskId, version])
   @@index([taskId, createdAt])
@@ -860,6 +875,34 @@ model PracticeAttempt {
   @@index([studyPlanId, studyPlanActionIndex, createdAt])
   @@index([errorCause, createdAt])
   @@index([taskId])
+  @@index([taskRevisionId])
+}
+
+model StudentTaskSolution {
+  id                    String                           @id @default(cuid())
+  studentId             String
+  taskId                String
+  taskRevisionId        String
+  code                  String
+  language              StudentSolutionLanguage          @default(PYTHON_3_13)
+  allowPublication      Boolean                          @default(false)
+  publicationStatus     StudentSolutionPublicationStatus @default(PRIVATE)
+  reviewedById          String?
+  reviewedAt            DateTime?
+  publishedAt           DateTime?
+  createdAt             DateTime                         @default(now())
+  updatedAt             DateTime                         @updatedAt
+
+  student      User         @relation("StudentTaskSolutions", fields: [studentId], references: [id], onDelete: Cascade)
+  reviewedBy   User?        @relation("ReviewedStudentTaskSolutions", fields: [reviewedById], references: [id], onDelete: SetNull)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  taskRevision TaskRevision @relation(fields: [taskRevisionId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, taskId])
+  @@index([studentId, updatedAt])
+  @@index([taskId, publicationStatus, publishedAt])
+  @@index([publicationStatus, updatedAt])
+  @@index([reviewedById])
   @@index([taskRevisionId])
 }
 

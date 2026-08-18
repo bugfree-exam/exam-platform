@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { StudentSolutionEditor } from "@/components/student/StudentSolutionEditor";
 import { StartVariantButton } from "@/components/variants/StartVariantButton";
 import { requireStudentPage } from "@/lib/access";
 import { formatAnswerForDisplay } from "@/lib/answer";
@@ -348,6 +349,12 @@ export default async function StudentVariantResultPage({
                     Разбор для этого задания пока не добавлен.
                   </div>
                 )}
+
+                <StudentSolutionEditor
+                  taskId={variantTask.taskId}
+                  taskRevisionId={variantTask.taskRevision.id}
+                  canViewPeerSolutions
+                />
               </article>
             );
           })}

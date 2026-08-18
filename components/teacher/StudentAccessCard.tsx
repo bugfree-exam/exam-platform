@@ -45,7 +45,7 @@ export function StudentAccessCard({
 
     try {
       const response = await fetch(
-        `/api/teacher/students/${studentId}/reset-password`,
+        `/api/students/${studentId}/reset-password`,
         {
           method: "POST",
         }

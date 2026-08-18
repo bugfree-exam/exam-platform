@@ -140,6 +140,7 @@ export default async function TrainerNumberPage({
         difficulty: true,
         currentRevision: {
           select: {
+            id: true,
             attachments: {
               orderBy: { order: "asc" },
               select: {
@@ -171,11 +172,11 @@ export default async function TrainerNumberPage({
     }),
   ]);
 
-  if (!task) {
+  if (!task?.currentRevision) {
     notFound();
   }
   const attachments =
-    task.currentRevision?.attachments.map((link) => link.attachment) ?? [];
+    task.currentRevision.attachments.map((link) => link.attachment);
 
   const linkedActionProgress =
     validatedLinkedPlan?.success && linkedPlan
@@ -231,12 +232,20 @@ export default async function TrainerNumberPage({
           >
             ← Выбрать другой номер
           </Link>
-          <Link
-            href="/student/results"
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700"
-          >
-            Мои результаты
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href="/student/solutions"
+              className="rounded-xl bg-violet-50 px-4 py-2 text-sm font-bold text-violet-800"
+            >
+              Мои решения
+            </Link>
+            <Link
+              href="/student/results"
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700"
+            >
+              Мои результаты
+            </Link>
+          </div>
         </nav>
 
         <header className="relative mt-5 overflow-hidden rounded-[2rem] bg-slate-950 px-5 py-7 text-white shadow-xl sm:px-8 sm:py-9">
@@ -328,6 +337,7 @@ export default async function TrainerNumberPage({
           <TrainerTaskSolver
             key={task.id}
             taskId={task.id}
+            taskRevisionId={task.currentRevision.id}
             egeNumber={egeNumber}
             answerType={task.answerType}
             studyPlanContext={studyPlanContext}

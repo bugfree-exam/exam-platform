@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
+import { StudentSolutionEditor } from "@/components/student/StudentSolutionEditor";
+
 type AnswerType =
   | "TEXT"
   | "NUMBER"
@@ -18,6 +20,7 @@ type StudentTaskAttachment = {
 
 type StudentTask = {
   id: string;
+  taskRevisionId: string;
   egeNumber: number;
   title: string;
   statementHtml: string;
@@ -36,6 +39,7 @@ type StudentTask = {
 
 type ResultTask = {
   id: string;
+  taskRevisionId: string;
   egeNumber: number;
   title: string;
   answerType: AnswerType;
@@ -418,6 +422,14 @@ function ResultPanel({
                   Разбор для этой задачи пока не добавлен.
                 </div>
               )}
+
+              {task?.taskRevisionId ? (
+                <StudentSolutionEditor
+                  taskId={answer.taskId}
+                  taskRevisionId={task.taskRevisionId}
+                  canViewPeerSolutions
+                />
+              ) : null}
             </article>
           );
         })}

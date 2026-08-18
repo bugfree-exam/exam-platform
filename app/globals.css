@@ -36,6 +36,11 @@ body[data-telegram-enabled="false"] a[href="/student/telegram"] {
   display: none !important;
 }
 
+.app-breadcrumbs + main.min-h-screen,
+.app-breadcrumbs + .mobile-app-shell main.min-h-screen {
+  min-height: calc(100svh - 2.75rem);
+}
+
 .mobile-bottom-nav {
   display: none;
 }

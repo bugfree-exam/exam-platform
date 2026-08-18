@@ -152,6 +152,7 @@ export default async function StudentHomeworkPage({
    */
   const tasks = homework.tasks.map((homeworkTask) => ({
       id: homeworkTask.taskId,
+      taskRevisionId: homeworkTask.taskRevision.id,
       egeNumber: homeworkTask.taskRevision.egeNumber,
       title: homeworkTask.taskRevision.title,
       statementHtml: homeworkTask.taskRevision.statementHtml,
@@ -536,6 +537,7 @@ export default async function StudentHomeworkPage({
                           taskId: answer.taskId,
                           task: {
                             id: answer.taskId,
+                            taskRevisionId: answer.taskRevision.id,
                             egeNumber: answer.taskRevision.egeNumber,
                             title: answer.taskRevision.title,
                             answerType: answer.taskRevision.answerType,

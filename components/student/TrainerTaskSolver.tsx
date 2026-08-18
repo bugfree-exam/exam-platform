@@ -8,6 +8,7 @@ import {
   learningErrorCauseLabels,
   type LearningErrorCauseValue,
 } from "@/lib/ai/errorCauses";
+import { StudentSolutionEditor } from "@/components/student/StudentSolutionEditor";
 
 type AnswerType =
   | "TEXT"
@@ -53,11 +54,13 @@ function getPlaceholder(answerType: AnswerType) {
 
 export function TrainerTaskSolver({
   taskId,
+  taskRevisionId,
   egeNumber,
   answerType,
   studyPlanContext,
 }: {
   taskId: string;
+  taskRevisionId: string;
   egeNumber: number;
   answerType: AnswerType;
   studyPlanContext?: {
@@ -295,6 +298,12 @@ export function TrainerTaskSolver({
               </button>
             </div>
           ) : null}
+
+          <StudentSolutionEditor
+            taskId={taskId}
+            taskRevisionId={taskRevisionId}
+            canViewPeerSolutions={result.feedbackStage === "SOLUTION"}
+          />
 
           {!result.isCorrect && result.feedbackStage === "HINT" ? (
             <button

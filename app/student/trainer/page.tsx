@@ -134,12 +134,14 @@ export default async function StudentTrainerPage() {
                 Что тренируем сегодня?
               </h2>
             </div>
-            <Link
-              href="/student/results"
-              className="text-sm font-bold text-cyan-700 hover:text-cyan-900"
-            >
-              Смотреть всю статистику →
-            </Link>
+            <div className="flex flex-wrap gap-3 text-sm font-bold text-cyan-700">
+              <Link href="/student/solutions" className="hover:text-cyan-900">
+                Мои решения
+              </Link>
+              <Link href="/student/results" className="hover:text-cyan-900">
+                Смотреть всю статистику →
+              </Link>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

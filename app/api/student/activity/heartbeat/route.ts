@@ -27,35 +27,53 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const { sessionId, path } = parsed.data;
-  const existing = await prisma.studentActivitySession.findUnique({
+  let session = await prisma.studentActivitySession.findUnique({
     where: { browserSessionId: sessionId },
     select: { id: true, studentId: true, lastPath: true },
   });
 
-  if (existing && existing.studentId !== auth.user.id) {
+  if (!session) {
+    // In development React can mount the heartbeat twice, and route changes can
+    // also produce overlapping requests. createMany + skipDuplicates turns
+    // that race into an idempotent insert instead of a noisy Prisma P2002.
+    await prisma.studentActivitySession.createMany({
+      data: {
+        studentId: auth.user.id,
+        browserSessionId: sessionId,
+        startedAt: now,
+        lastSeenAt: now,
+        lastPath: path,
+        pageViews: 1,
+      },
+      skipDuplicates: true,
+    });
+
+    session = await prisma.studentActivitySession.findUnique({
+      where: { browserSessionId: sessionId },
+      select: { id: true, studentId: true, lastPath: true },
+    });
+  }
+
+  if (!session) {
+    return NextResponse.json(
+      { message: "Не удалось сохранить активность" },
+      { status: 500 }
+    );
+  }
+
+  if (session.studentId !== auth.user.id) {
     return NextResponse.json({ message: "Конфликт сессии" }, { status: 409 });
   }
 
   await prisma.$transaction([
-    existing
-      ? prisma.studentActivitySession.update({
-          where: { id: existing.id },
-          data: {
-            lastSeenAt: now,
-            lastPath: path,
-            ...(existing.lastPath !== path ? { pageViews: { increment: 1 } } : {}),
-          },
-        })
-      : prisma.studentActivitySession.create({
-          data: {
-            studentId: auth.user.id,
-            browserSessionId: sessionId,
-            startedAt: now,
-            lastSeenAt: now,
-            lastPath: path,
-            pageViews: 1,
-          },
-        }),
+    prisma.studentActivitySession.update({
+      where: { id: session.id },
+      data: {
+        lastSeenAt: now,
+        lastPath: path,
+        ...(session.lastPath !== path ? { pageViews: { increment: 1 } } : {}),
+      },
+    }),
     prisma.user.update({
       where: { id: auth.user.id },
       data: { lastActivityAt: now },

@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+// Серверный сценарий запросов помощи сохраняем на будущее, но пока у курса
+// нет кураторов, ученикам эту кнопку не показываем.
+const HELP_REQUESTS_ENABLED = false;
+
 export function TodayItemActions({
   itemKey,
   href,
@@ -59,7 +63,7 @@ export function TodayItemActions({
         <Link href={href} target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white">{action}</Link>
         {allowSnooze ? <button type="button" onClick={() => decide("tomorrow")} disabled={Boolean(pending)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-600">{pending === "tomorrow" ? "Переносим…" : "На завтра"}</button> : null}
         {checkHref ? <Link href={checkHref} className="rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-xs font-bold text-cyan-800">Уже умею — проверить</Link> : null}
-        <button type="button" onClick={() => decide("help")} disabled={Boolean(pending)} className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-bold text-violet-800">{pending === "help" ? "Отправляем…" : "Нужна помощь"}</button>
+        {HELP_REQUESTS_ENABLED ? <button type="button" onClick={() => decide("help")} disabled={Boolean(pending)} className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs font-bold text-violet-800">{pending === "help" ? "Отправляем…" : "Нужна помощь"}</button> : null}
       </div>
       {message ? <p className="mt-2 text-xs leading-5 text-slate-600">{message}</p> : null}
     </div>

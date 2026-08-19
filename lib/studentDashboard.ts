@@ -39,12 +39,12 @@ function defaultHref(type: CourseItemType, egeNumbers: number[]) {
 export async function getStudentToday(studentId: string, now = new Date()) {
   const course = await getStudentCourse(studentId);
   const { start, end } = getMoscowDayRange(now);
-  const [scheduled, webinars] = await Promise.all([
+  const [scheduled, webinars, homeworkAssignments] = await Promise.all([
     course
       ? prisma.courseScheduleItem.findMany({
           where: {
             courseId: course.id,
-            type: { not: "WEBINAR" },
+            type: { notIn: ["WEBINAR", "HOMEWORK"] },
             scheduledFor: { gte: start, lt: end },
           },
           orderBy: [{ scheduledFor: "asc" }, { order: "asc" }],
@@ -53,6 +53,29 @@ export async function getStudentToday(studentId: string, now = new Date()) {
     prisma.webinarSchedule.findMany({
       where: { isPublished: true, scheduledAt: { gte: start, lt: end } },
       orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.homeworkAssignment.findMany({
+      where: {
+        studentId,
+        homework: {
+          status: "ASSIGNED",
+          attempts: { none: { studentId, status: "SUBMITTED" } },
+        },
+      },
+      select: {
+        id: true,
+        assignedAt: true,
+        homework: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            deadline: true,
+            _count: { select: { tasks: true } },
+          },
+        },
+      },
+      orderBy: [{ homework: { deadline: "asc" } }, { assignedAt: "asc" }],
     }),
   ]);
 
@@ -69,7 +92,7 @@ export async function getStudentToday(studentId: string, now = new Date()) {
       why: "Этот пункт поставлен преподавателем в общий график курса именно на сегодня.",
       href,
       action: item.type === "WEBINAR" ? "Подключиться" : "Открыть",
-      priority: 0,
+      priority: 2,
       estimatedMinutes: item.estimatedMinutes,
       scheduledFor: item.scheduledFor,
       external: href.startsWith("http://") || href.startsWith("https://"),
@@ -84,63 +107,80 @@ export async function getStudentToday(studentId: string, now = new Date()) {
     why: "Преподаватель опубликовал вебинар на сегодняшнюю дату.",
     href: webinar.joinUrl,
     action: "Подключиться",
-    priority: 0,
+    priority: 2,
     estimatedMinutes: 90,
     scheduledFor: webinar.scheduledAt,
     external: true,
   }));
 
-  return [...courseItems, ...webinarItems]
-    .sort((left, right) => left.scheduledFor.getTime() - right.scheduledFor.getTime())
-    .map((item, index, items) => ({ ...item, priority: items.length - index }));
+  const formatDeadline = (value: Date) =>
+    new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Europe/Moscow",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(value);
+
+  const homeworkItems = homeworkAssignments.map((assignment): TodayItem => {
+    const { homework } = assignment;
+    const isOverdue = Boolean(homework.deadline && homework.deadline < now);
+    const timing = isOverdue
+      ? `Просрочено · срок был ${formatDeadline(homework.deadline!)}`
+      : homework.deadline
+        ? `Задано · срок до ${formatDeadline(homework.deadline)}`
+        : "Задано · без дедлайна";
+
+    return {
+      key: `homework-${assignment.id}`,
+      kind: "HOMEWORK",
+      title: homework.title,
+      description: homework.description
+        ? `${timing}. ${homework.description}`
+        : timing,
+      why: isOverdue
+        ? "Домашняя работа ещё не сдана, а установленный преподавателем срок уже прошёл."
+        : "Домашняя работа назначена преподавателем и ещё не сдана.",
+      href: `/student/homeworks/${homework.id}`,
+      action: "Выполнить ДЗ",
+      priority: isOverdue ? 3 : 1,
+      estimatedMinutes: Math.min(
+        120,
+        Math.max(30, homework._count.tasks * 15),
+      ),
+      scheduledFor: homework.deadline ?? assignment.assignedAt,
+      external: false,
+    };
+  });
+
+  return [...courseItems, ...webinarItems, ...homeworkItems].sort(
+    (left, right) =>
+      right.priority - left.priority ||
+      left.scheduledFor.getTime() - right.scheduledFor.getTime(),
+  );
 }
 
 export async function getStudentBacklog(studentId: string, now = new Date()) {
-  const [homeworks, variants] = await Promise.all([
-    prisma.homeworkAssignment.findMany({
-      where: {
-        studentId,
-        homework: { status: "ASSIGNED", deadline: { lt: now } },
-      },
-      select: {
-        id: true,
-        homework: {
-          select: {
-            id: true,
-            title: true,
-            deadline: true,
-            attempts: {
-              where: { studentId, status: "SUBMITTED" },
-              select: { id: true },
-              take: 1,
-            },
+  const variants = await prisma.variantAssignment.findMany({
+    where: { studentId, deadline: { lt: now } },
+    select: {
+      id: true,
+      deadline: true,
+      variant: {
+        select: {
+          id: true,
+          title: true,
+          attempts: {
+            where: { studentId, status: "SUBMITTED" },
+            select: { id: true },
+            take: 1,
           },
         },
       },
-      orderBy: { homework: { deadline: "asc" } },
-      take: 12,
-    }),
-    prisma.variantAssignment.findMany({
-      where: { studentId, deadline: { lt: now } },
-      select: {
-        id: true,
-        deadline: true,
-        variant: {
-          select: {
-            id: true,
-            title: true,
-            attempts: {
-              where: { studentId, status: "SUBMITTED" },
-              select: { id: true },
-              take: 1,
-            },
-          },
-        },
-      },
-      orderBy: { deadline: "asc" },
-      take: 12,
-    }),
-  ]);
+    },
+    orderBy: { deadline: "asc" },
+    take: 12,
+  });
 
   const format = (value: Date | null) =>
     value
@@ -152,16 +192,6 @@ export async function getStudentBacklog(studentId: string, now = new Date()) {
       : "без даты";
 
   return [
-    ...homeworks.flatMap((assignment): BacklogItem[] =>
-      assignment.homework.attempts.length
-        ? []
-        : [{
-            key: `homework-${assignment.id}`,
-            title: assignment.homework.title,
-            description: `ДЗ · срок был ${format(assignment.homework.deadline)}`,
-            href: `/student/homeworks/${assignment.homework.id}`,
-          }],
-    ),
     ...variants.flatMap((assignment): BacklogItem[] =>
       assignment.variant.attempts.length
         ? []

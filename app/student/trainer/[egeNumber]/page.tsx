@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { TrainerTaskSolver } from "@/components/student/TrainerTaskSolver";
+import { TrainerWorkspace } from "@/components/student/TrainerWorkspace";
 import { requireStudentPage } from "@/lib/access";
 import { studyPlanSchema } from "@/lib/ai/planSchema";
 import { calculateStudyPlanProgress } from "@/lib/ai/studyPlanProgress";
@@ -289,7 +289,14 @@ export default async function TrainerNumberPage({
           </div>
         </header>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <TrainerWorkspace
+          key={task.id}
+          taskId={task.id}
+          taskRevisionId={task.currentRevision.id}
+          egeNumber={egeNumber}
+          answerType={task.answerType}
+          studyPlanContext={studyPlanContext}
+        >
           <article className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
               task.condition
@@ -334,15 +341,7 @@ export default async function TrainerNumberPage({
             ) : null}
           </article>
 
-          <TrainerTaskSolver
-            key={task.id}
-            taskId={task.id}
-            taskRevisionId={task.currentRevision.id}
-            egeNumber={egeNumber}
-            answerType={task.answerType}
-            studyPlanContext={studyPlanContext}
-          />
-        </div>
+        </TrainerWorkspace>
 
         <footer className="mt-6 rounded-2xl border border-slate-200 bg-white/80 px-5 py-4 text-sm leading-6 text-slate-500 backdrop-blur">
           После проверки нажмите «Следующее задание №{egeNumber}» — тренажёр

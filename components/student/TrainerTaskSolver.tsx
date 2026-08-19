@@ -8,14 +8,20 @@ import {
   learningErrorCauseLabels,
   type LearningErrorCauseValue,
 } from "@/lib/ai/errorCauses";
-import { StudentSolutionEditor } from "@/components/student/StudentSolutionEditor";
-
-type AnswerType =
+export type TrainerAnswerType =
   | "TEXT"
   | "NUMBER"
   | "NUMBER_LIST"
   | "PAIR_LIST_ORDERED"
   | "PAIR_LIST_UNORDERED";
+
+export type TrainerStudyPlanContext = {
+  planId: string;
+  actionIndex: number;
+  target: number;
+  completedBefore: number;
+  attemptKind: "PRACTICE" | "CONTROL";
+};
 
 type AttemptResult = {
   id: string;
@@ -45,7 +51,7 @@ function formatAnswer(value: unknown) {
   return value === null || value === undefined ? "—" : String(value);
 }
 
-function getPlaceholder(answerType: AnswerType) {
+function getPlaceholder(answerType: TrainerAnswerType) {
   if (answerType === "NUMBER") return "Например: 42";
   if (answerType === "NUMBER_LIST") return "Например: 10 20 30";
   if (answerType.startsWith("PAIR_LIST")) return "1 2\n3 4";
@@ -54,22 +60,16 @@ function getPlaceholder(answerType: AnswerType) {
 
 export function TrainerTaskSolver({
   taskId,
-  taskRevisionId,
   egeNumber,
   answerType,
   studyPlanContext,
+  onFeedbackStageChange,
 }: {
   taskId: string;
-  taskRevisionId: string;
   egeNumber: number;
-  answerType: AnswerType;
-  studyPlanContext?: {
-    planId: string;
-    actionIndex: number;
-    target: number;
-    completedBefore: number;
-    attemptKind: "PRACTICE" | "CONTROL";
-  };
+  answerType: TrainerAnswerType;
+  studyPlanContext?: TrainerStudyPlanContext;
+  onFeedbackStageChange?: (stage: AttemptResult["feedbackStage"] | null) => void;
 }) {
   const router = useRouter();
   const [answer, setAnswer] = useState("");
@@ -86,6 +86,7 @@ export function TrainerTaskSolver({
     event.preventDefault();
     setMessage("");
     setResult(null);
+    onFeedbackStageChange?.(null);
     setNextTaskId(null);
     setNextTaskCountsForMastery(false);
     setIsChecking(true);
@@ -116,6 +117,7 @@ export function TrainerTaskSolver({
       }
 
       setResult(data.attempt);
+      onFeedbackStageChange?.(data.attempt.feedbackStage);
       setNextTaskId(data.nextTaskId);
       setNextTaskCountsForMastery(data.nextTaskCountsForMastery);
     } catch {
@@ -299,17 +301,12 @@ export function TrainerTaskSolver({
             </div>
           ) : null}
 
-          <StudentSolutionEditor
-            taskId={taskId}
-            taskRevisionId={taskRevisionId}
-            canViewPeerSolutions={result.feedbackStage === "SOLUTION"}
-          />
-
           {!result.isCorrect && result.feedbackStage === "HINT" ? (
             <button
               type="button"
               onClick={() => {
                 setResult(null);
+                onFeedbackStageChange?.(null);
                 setAnswer("");
                 setNextTaskId(null);
                 setCauseSaved(false);

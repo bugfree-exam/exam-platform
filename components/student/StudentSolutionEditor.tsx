@@ -76,13 +76,11 @@ export function StudentSolutionEditor({
   const [isLoadingPeers, setIsLoadingPeers] = useState(false);
 
   useEffect(() => {
-    if (!activated) return;
+  if (!activated) return;
 
-    let cancelled = false;
-    setIsLoading(true);
-    setError("");
+  let cancelled = false;
 
-    void fetch(`/api/student/solutions/${taskId}`, { cache: "no-store" })
+  void fetch(`/api/student/solutions/${taskId}`, { cache: "no-store" })
       .then(async (response) => {
         const data = (await response.json()) as {
           solution?: OwnSolution | null;
@@ -188,8 +186,12 @@ export function StudentSolutionEditor({
     <details
       className="mt-5 rounded-2xl border border-violet-200 bg-violet-50/40"
       onToggle={(event) => {
-        if (event.currentTarget.open) setActivated(true);
-      }}
+      if (event.currentTarget.open && !activated) {
+        setIsLoading(true);
+        setError("");
+        setActivated(true);
+      }
+    }}
     >
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-black text-violet-950 marker:hidden">
         <span className="flex items-center justify-between gap-3">

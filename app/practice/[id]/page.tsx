@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PublicPracticeDrawingLayer } from "@/components/practice/PublicPracticeDrawingLayer";
 import { PublicTaskSolver } from "@/components/practice/PublicTaskSolver";
 import { prisma } from "@/lib/prisma";
 
 type PracticeTaskPageProps = {
   params: Promise<{
     id: string;
+  }>;
+  searchParams: Promise<{
+    topic?: string | string[];
   }>;
 };
 export const dynamic = "force-dynamic";
@@ -45,8 +49,14 @@ export async function generateMetadata({
 
 export default async function PracticeTaskPage({
   params,
+  searchParams,
 }: PracticeTaskPageProps) {
-  const { id } = await params;
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const requestedTopic = (
+    Array.isArray(query.topic) ? query.topic[0] : query.topic
+  )
+    ?.trim()
+    .slice(0, 120);
   const task = await prisma.task.findFirst({
     where: {
       id,
@@ -61,6 +71,7 @@ export default async function PracticeTaskPage({
       referenceHtml: true,
       answerType: true,
       difficulty: true,
+      skillTag: true,
       currentRevision: {
         select: {
           attachments: {
@@ -86,12 +97,17 @@ export default async function PracticeTaskPage({
   }
   const attachments =
     task.currentRevision?.attachments.map((link) => link.attachment) ?? [];
+  const selectedTopic =
+    requestedTopic && requestedTopic === task.skillTag?.trim()
+      ? requestedTopic
+      : null;
 
   const tasksOfSameNumber = await prisma.task.findMany({
     where: {
       egeNumber: task.egeNumber,
       isPublic: true,
       isArchived: false,
+      ...(selectedTopic ? { skillTag: selectedTopic } : {}),
     },
     select: {
       id: true,
@@ -105,9 +121,21 @@ export default async function PracticeTaskPage({
     tasksOfSameNumber.length > 1
       ? tasksOfSameNumber[(currentIndex + 1) % tasksOfSameNumber.length].id
       : null;
+  const topicParams = selectedTopic
+    ? new URLSearchParams({ topic: selectedTopic }).toString()
+    : "";
+  const backHref = `/practice?${new URLSearchParams({
+    egeNumber: String(task.egeNumber),
+    ...(selectedTopic ? { topic: selectedTopic } : {}),
+  }).toString()}`;
+  const nextTaskHref = nextTaskId
+    ? `/practice/${nextTaskId}${topicParams ? `?${topicParams}` : ""}`
+    : null;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#f4f7f8] px-4 py-5 text-slate-950 sm:px-6 sm:py-8">
+    <>
+      <PublicPracticeDrawingLayer key={task.id} taskId={task.id} />
+      <main className="relative min-h-screen overflow-hidden bg-[#f4f7f8] px-4 py-5 pb-24 text-slate-950 sm:px-6 sm:py-8 sm:pb-28">
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.32]"
         style={{
@@ -120,10 +148,10 @@ export default async function PracticeTaskPage({
       <div className="relative mx-auto max-w-5xl">
         <nav className="flex items-center justify-between gap-4 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
           <Link
-            href={`/practice?egeNumber=${task.egeNumber}`}
+            href={backHref}
             className="text-sm font-bold text-slate-700 transition hover:text-cyan-700"
           >
-            ← Все задания №{task.egeNumber}
+            ← {selectedTopic ? "К выбранной теме" : `Все задания №${task.egeNumber}`}
           </Link>
           <Link
             href="/login"
@@ -140,6 +168,11 @@ export default async function PracticeTaskPage({
               <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-200">
                 №{task.egeNumber} ЕГЭ
               </span>
+              {task.skillTag ? (
+                <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                  {task.skillTag}
+                </span>
+              ) : null}
               {task.difficulty ? (
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
                   Сложность {task.difficulty}/5
@@ -197,12 +230,17 @@ export default async function PracticeTaskPage({
           <PublicTaskSolver
             key={task.id}
             taskId={task.id}
-            egeNumber={task.egeNumber}
             answerType={task.answerType}
-            nextTaskId={nextTaskId}
+            nextTaskHref={nextTaskHref}
+            nextTaskLabel={
+              selectedTopic
+                ? "Следующее задание по этой теме →"
+                : `Следующее задание №${task.egeNumber} →`
+            }
           />
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

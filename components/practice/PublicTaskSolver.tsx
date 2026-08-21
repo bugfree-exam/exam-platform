@@ -38,14 +38,14 @@ function getPlaceholder(answerType: AnswerType) {
 
 export function PublicTaskSolver({
   taskId,
-  egeNumber,
   answerType,
-  nextTaskId,
+  nextTaskHref,
+  nextTaskLabel,
 }: {
   taskId: string;
-  egeNumber: number;
   answerType: AnswerType;
-  nextTaskId: string | null;
+  nextTaskHref: string | null;
+  nextTaskLabel: string;
 }) {
   const router = useRouter();
   const [answer, setAnswer] = useState("");
@@ -179,13 +179,13 @@ export function PublicTaskSolver({
             >
               Попробовать ещё раз →
             </button>
-          ) : nextTaskId ? (
+          ) : nextTaskHref ? (
             <button
               type="button"
-              onClick={() => router.push(`/practice/${nextTaskId}`)}
+              onClick={() => router.push(nextTaskHref)}
               className="mt-5 w-full rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700"
             >
-              Следующее задание №{egeNumber} →
+              {nextTaskLabel}
             </button>
           ) : (
             <div className="mt-5 rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600">

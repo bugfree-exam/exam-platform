@@ -28,6 +28,7 @@ export async function GET(_request: Request, context: RouteContext) {
       referenceHtml: true,
       answerType: true,
       difficulty: true,
+      skillTag: true,
       currentRevision: {
         select: {
           version: true,

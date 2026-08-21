@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search")?.trim().slice(0, 200) ?? "";
+  const topic = searchParams.get("topic")?.trim().slice(0, 120) ?? "";
   const rawEgeNumber = Number(searchParams.get("egeNumber"));
   const rawPage = Number(searchParams.get("page"));
   const page =
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
     isPublic: true,
     isArchived: false,
     ...(egeNumber ? { egeNumber } : {}),
+    ...(topic ? { skillTag: topic } : {}),
     ...(search
       ? {
           OR: [
@@ -55,6 +57,7 @@ export async function GET(request: Request) {
         egeNumber: true,
         title: true,
         difficulty: true,
+        skillTag: true,
       },
       orderBy: [{ egeNumber: "asc" }, { createdAt: "desc" }],
       skip: (page - 1) * pageSize,
